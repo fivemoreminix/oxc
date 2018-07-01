@@ -4,6 +4,32 @@ use scanner::*;
 fn generate_expression(expression: &Expr) -> String {
     match expression {
         Expr::Const(num) => return format!("  movl ${}, %eax\n", num),
+        Expr::BinOp(op, lhs, rhs) => {
+            let mut generated: String;
+            // We reverse who is in ecx register because subtraction is dst - src -> dst.
+            // Otherwise we'd have to `movl %ecx, %eax`. This is an optimization.
+            if *op == Operator::Minus || *op == Operator::Slash {
+                generated = generate_expression(rhs);
+                generated.push_str("  push %eax\n");
+                generated.push_str(&generate_expression(lhs));
+                generated.push_str("  pop %ecx\n"); // rhs is now in ecx register
+            } else {
+                generated = generate_expression(lhs);
+                generated.push_str("  push %eax\n");
+                generated.push_str(&generate_expression(rhs));
+                generated.push_str("  pop %ecx\n"); // lhs is now in ecx register
+            }
+
+            match op {
+                Operator::Plus => generated.push_str("  addl %ecx, %eax\n"),
+                Operator::Minus => generated.push_str("  subl %ecx, %eax\n"),
+                Operator::Star => generated.push_str("  imul %ecx, %eax\n"),
+                Operator::Slash => generated.push_str("  xor %edx, %edx\n  idivl %ecx\n  movl %ecx, %eax\n"),
+                _ => unimplemented!()
+            }
+
+            return generated;
+        }
         Expr::UnaryOp(op, expr) => {
             let mut generated_expr = generate_expression(expr);
             match op {
