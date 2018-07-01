@@ -43,42 +43,24 @@ fn parse_factor(tokens: &mut Peekable<Iter<Token>>) -> Expr {
 }
 
 fn parse_term(tokens: &mut Peekable<Iter<Token>>) -> Expr { // term = factor, { ("*" | "/"), factor }
-    match tokens.next() {
-        Some(tok) => {
-            match tok {
-                Token::Integer(num) => {
-                    let mut term = Expr::Const(*num);
-                    loop {
-                        match tokens.peek() {
-                            Some(&peek) => {
-                                match peek {
-                                    Token::Operator(peek) => {
-                                        if peek == &Operator::Star || peek == &Operator::Slash { // More terms
-                                            let mut op = Operator::Star; // prevent "uninitialized variable" warning
-                                            match tokens.next() {
-                                                Some(Token::Operator(oper)) => op = *oper,
-                                                _ => assert!(false), // should be impossible
-                                            };
+    let mut term = parse_factor(tokens);
+    loop {
+        match tokens.peek() {
+            Some(Token::Operator(peek)) if peek == &Operator::Star || peek == &Operator::Slash => {
+                // More terms
+                let mut op = Operator::Star; // prevent "uninitialized variable" warning
+                match tokens.next() {
+                    Some(Token::Operator(oper)) => op = *oper,
+                    _ => assert!(false), // should be impossible
+                };
 
-                                            let next_term = parse_term(tokens);
-                                            term = Expr::BinOp(op, Box::new(term), Box::new(next_term));
-                                        } else {
-                                            break; // loop
-                                        }
-                                    }
-                                    _ => break,
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                    return term;
-                }
-                _ => panic!("Expected term"),
+                let next_term = parse_factor(tokens);
+                term = Expr::BinOp(op, Box::new(term), Box::new(next_term));
             }
+            _ => break, // no more tokens
         }
-        None => panic!("Expected term"),
     }
+    return term;
 }
 
 fn parse_expression(tokens: &mut Peekable<Iter<Token>>) -> Expr {
@@ -108,7 +90,7 @@ fn parse_expression(tokens: &mut Peekable<Iter<Token>>) -> Expr {
                                     _ => break,
                                 }
                             }
-                            _ => {}
+                            _ => break, // no more tokens
                         }
                     }
                     return term;
