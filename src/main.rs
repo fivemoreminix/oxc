@@ -4,6 +4,7 @@ use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 use std::process::Command;
+use std::path::Path;
 
 mod scanner;
 mod ast;
@@ -19,6 +20,9 @@ fn main() {
     let mut contents = String::new();
     File::open(&argv[1]).unwrap().read_to_string(&mut contents).unwrap();
 
+    // Comment the following line if you don't want the source file to be printed
+    println!("{}:\n{}\n", &argv[1], contents);
+
     let tokens = lex(&contents);
     println!("Scanner production:\n{:?}\n", tokens);
 
@@ -31,7 +35,7 @@ fn main() {
     let generated = generate(&ast);
     println!("Generated assembly:\n{}", generated);
 
-    let file_name = std::path::Path::new(&argv[1]).file_stem().unwrap().to_str().unwrap();
+    let file_name = Path::new(&argv[1]).file_stem().unwrap().to_str().unwrap();
 
     let mut output_file = File::create(&format!("{}.s", file_name)).unwrap();
     output_file.write_all(generated.as_bytes()).unwrap();
