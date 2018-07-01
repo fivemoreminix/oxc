@@ -1,0 +1,8 @@
+program = function;
+function = "int", identifier, "(", ")", "{", statement, "}";
+statement = "return", expression, ";";
+expression = term, { ("+" | "-"), term };
+term = factor, { ("*" | "/"), factor };
+factor = "(", expression, ")"
+       | unary op, factor
+       | int;
