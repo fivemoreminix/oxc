@@ -1,8 +1,13 @@
 program = function;
 function = "int", identifier, "(", ")", "{", statement, "}";
-statement = "return", expression, ";";
-expression = term, { ("+" | "-"), term };
+statement = "return", expr, ";";
+expr = logical_and_expr, { "||", logical_and_expr };
+logical_and_expr = equality_expr, { "&&", equality_expr };
+equality_expr = relational_expr, { ("!=" | "=="), relational_expr };
+relational_expr = relational_expr, { ("<" | ">" | "<=" | ">="), additive_expr };
+additive_expr = term, { ("+" | "-"), term };
 term = factor, { ("*" | "/"), factor };
-factor = "(", expression, ")"
-       | unary op, factor
+factor = "(", expr, ")"
+       | unary_op, factor
        | int;
+unary_op = "!" | "~" | "-";

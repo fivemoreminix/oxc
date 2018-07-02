@@ -26,8 +26,6 @@ fn main() {
     let tokens = lex(&contents);
     println!("Scanner production:\n{:?}\n", tokens);
 
-    // Currently this parser is only onto stage 3.
-    // I am having trouble with parsing unary operators alone with terms instead of entire expressions.
     let ast = parse(&tokens);
     println!("Abstract syntax tree:\n{:#?}\n", ast);
 
@@ -35,15 +33,15 @@ fn main() {
     let generated = generate(&ast);
     println!("Generated assembly:\n{}", generated);
 
-    let file_name = Path::new(&argv[1]).file_stem().unwrap().to_str().unwrap();
+    // let file_name = Path::new(&argv[1]).file_stem().unwrap().to_str().unwrap();
 
-    let mut output_file = File::create(&format!("{}.s", file_name)).unwrap();
-    output_file.write_all(generated.as_bytes()).unwrap();
+    // let mut output_file = File::create(&format!("{}.s", file_name)).unwrap();
+    // output_file.write_all(generated.as_bytes()).unwrap();
 
-    Command::new("gcc")
-        .args(&["-m32", &format!("{}.s", file_name), "-o", "out"])
-        .spawn()
-        .unwrap()
-        .wait()
-        .unwrap();
+    // Command::new("gcc")
+    //     .args(&["-m32", &format!("{}.s", file_name), "-o", "out"])
+    //     .spawn()
+    //     .unwrap()
+    //     .wait()
+    //     .unwrap();
 }

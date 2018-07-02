@@ -6,28 +6,65 @@ fn generate_expression(expression: &Expr) -> String {
         Expr::Const(num) => return format!("  movl ${}, %eax\n", num),
         Expr::BinOp(op, lhs, rhs) => {
             let mut generated: String;
-            // We reverse who is in ecx register because subtraction is dst - src -> dst.
-            // Otherwise we'd have to `movl %ecx, %eax`. This is an optimization.
-            if *op == Operator::Minus || *op == Operator::Slash {
-                generated = generate_expression(rhs);
-                generated.push_str("  push %eax\n");
-                generated.push_str(&generate_expression(lhs));
-                generated.push_str("  pop %ecx\n"); // rhs is now in ecx register
-            } else {
-                generated = generate_expression(lhs);
-                generated.push_str("  push %eax\n");
-                generated.push_str(&generate_expression(rhs));
-                generated.push_str("  pop %ecx\n"); // lhs is now in ecx register
-            }
-
             match op {
-                Operator::Plus => generated.push_str("  addl %ecx, %eax\n"),
-                Operator::Minus => generated.push_str("  subl %ecx, %eax\n"),
-                Operator::Star => generated.push_str("  imul %ecx, %eax\n"),
-                Operator::Slash => generated.push_str("  xor %edx, %edx\n  idivl %ecx\n  movl %ecx, %eax\n"),
+                Operator::Plus | Operator::Minus | Operator::Star | Operator::Slash => {
+                    // We reverse who is in ecx register because subtraction is dst - src -> dst.
+                    // Otherwise we'd have to `movl %ecx, %eax`. This is an optimization.
+                    if *op == Operator::Minus || *op == Operator::Slash {
+                        generated = generate_expression(rhs);
+                        generated.push_str("  push %eax\n");
+                        generated.push_str(&generate_expression(lhs));
+                        generated.push_str("  pop %ecx\n"); // rhs is now in ecx register
+                    } else {
+                        generated = generate_expression(lhs);
+                        generated.push_str("  push %eax\n");
+                        generated.push_str(&generate_expression(rhs));
+                        generated.push_str("  pop %ecx\n"); // lhs is now in ecx register
+                    }
+
+                    match op {
+                        Operator::Plus => generated.push_str("  addl %ecx, %eax\n"),
+                        Operator::Minus => generated.push_str("  subl %ecx, %eax\n"),
+                        Operator::Star => generated.push_str("  imul %ecx, %eax\n"),
+                        Operator::Slash => generated.push_str("  xor %edx, %edx\n  idivl %ecx\n  movl %ecx, %eax\n"),
+                        _ => unimplemented!()
+                    }
+                }
+                Operator::EqualEqual  | Operator::NotEqual  | // Equality and comparison
+                Operator::LessThan    | Operator::LessEqual |
+                Operator::GreaterThan | Operator::GreaterEqual => {
+                    generated = generate_expression(rhs);
+                    generated.push_str("  push %eax\n");
+                    generated.push_str(&generate_expression(lhs)); // lhs is now in eax register
+                    generated.push_str("  pop %ecx\n"); // rhs is now in ecx register
+                    generated.push_str("  cmpl %eax, %ecx\n  movl $0, %eax\n");
+                    generated.push_str(match op {
+                        Operator::EqualEqual   => "  sete %al\n",
+                        Operator::NotEqual     => "  setne %al\n",
+                        Operator::LessThan     => "  setl %al\n",
+                        Operator::LessEqual    => "  setle %al\n",
+                        Operator::GreaterThan  => "  setg %al\n",
+                        Operator::GreaterEqual => "  setge %al\n",
+                        _ => unimplemented!()
+                    });
+                }
+                Operator::Or | Operator::And => {
+                    generated = generate_expression(lhs);
+                    generated.push_str("  push %eax\n");
+                    generated.push_str(&generate_expression(rhs));
+                    generated.push_str("  pop %ecx\n");
+                    generated.push_str(match op {
+                        Operator::Or  => "  orl %ecx, %eax\n  movl $0, %eax\n  setne %al\n",
+                        /* 1. Set `cl` to 1 if lhs != 0
+                         * 2. Set `al` to 1 if rhs != 0
+                         * 3. Store `al` and `cl` in `al`
+                         */
+                        Operator::And => "  cmpl $0, %eax\n  setne %cl\n  cmpl $0, %eax\n  movl $0, %eax\n  setne %al\n  andb %cl, %al\n",
+                        _ => unsafe { ::std::hint::unreachable_unchecked() },
+                    });
+                }
                 _ => unimplemented!()
             }
-
             return generated;
         }
         Expr::UnaryOp(op, expr) => {

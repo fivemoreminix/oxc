@@ -16,6 +16,15 @@ pub enum Operator {
     Plus,               // +
     Star,               // *
     Slash,              // /
+    And,                // &&
+    Or,                 // ||
+    EqualEqual,         // ==
+    NotEqual,           // !=
+    LessThan,           // <
+    LessEqual,          // <=
+    GreaterThan,        // >
+    GreaterEqual,       // >=
+
 }
 use self::Operator::*;
 
@@ -61,11 +70,48 @@ pub fn lex(source: &str) -> Vec<Token> {
             ')' => tokens.push(Token::Symbol(RParen)),
             ';' => tokens.push(Token::Symbol(Semicolon)),
             '~' => tokens.push(Token::Operator(BitwiseComplement)),
-            '!' => tokens.push(Token::Operator(LogicalNegation)),
+            '!' => if chars.get(i+1) == Some(&'=') {
+                i += 1;
+                tokens.push(Token::Operator(NotEqual));
+            } else {
+                tokens.push(Token::Operator(LogicalNegation));
+            }
             '-' => tokens.push(Token::Operator(Minus)),
             '+' => tokens.push(Token::Operator(Plus)),
             '*' => tokens.push(Token::Operator(Star)),
             '/' => tokens.push(Token::Operator(Slash)),
+            '&' => if chars.get(i+1) == Some(&'&') {
+                i += 1;
+                tokens.push(Token::Operator(And));
+            } else {
+                unimplemented!();
+                //tokens.push(Token::Operator(BitwiseAnd));
+            }
+            '|' => if chars.get(i+1) == Some(&'|') {
+                i += 1;
+                tokens.push(Token::Operator(Or));
+            } else {
+                unimplemented!();
+                //tokens.push(Token::Operator(BitwiseOr));
+            }
+            '=' => if chars.get(i+1) == Some(&'=') {
+                i += 1;
+                tokens.push(Token::Operator(EqualEqual));
+            } else {
+                unimplemented!();
+            }
+            '<' => if chars.get(i+1) == Some(&'=') {
+                i += 1;
+                tokens.push(Token::Operator(LessEqual));
+            } else {
+                tokens.push(Token::Operator(LessThan));
+            }
+            '>' => if chars.get(i+1) == Some(&'=') {
+                i += 1;
+                tokens.push(Token::Operator(GreaterEqual));
+            } else {
+                tokens.push(Token::Operator(GreaterThan));
+            }
             _ => {
                 if c.is_alphabetic() || c == '_' {
                     let mut full = c.to_string();
