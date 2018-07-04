@@ -15,7 +15,7 @@ This language **does not** aim to be:
 * Inviable for general development
 
 # Where The Language is Right Now
-All of tests/stage_1 through tests/stage_3.
+All of tests/stage_1 through tests/stage_4.
 
 # Motivation
 The main reason I am making this language is because I am annoyed with how few good options I have when I even set out to make a new programming language; reason two. I don't like when Rust keeps me from making something very dynamic and dangerous. I don't like pure functional programming languages because that's just not how my mind works. I tried Go and liked it until it began presenting values I didn't care for. I thought about using C or C++ but damn those are hard for making compilers. So I settled for Rust as the only con being its safety (of which I don't care for since nothing I write currently requires it). Rust has proven to be really really good for writing compilers or interpreters.
