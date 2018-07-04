@@ -26,26 +26,32 @@ The second reason I am making this language is because I just want a language th
 ```rs
 $ cargo build
 ...
-./target/debug/oxc ./test/stage_3/valid/div.c
-./test/stage_3/valid/div.c:
+$ .\target\debug\oxc.exe .\test\stage_4\valid\precedence_2.c
+.\test\stage_4\valid\precedence_2.c:
 int main() {
-    return 4 / 2;
+    return (1 || 0) && 0;
 }
 
 Scanner production:
-[Keyword(Int), Id("main"), Symbol(LParen), Symbol(RParen), Symbol(LBrace), Keyword(Return), Integer(4), Operator(Slash), Integer(2), Symbol(Semicolon), Symbol(RBrace)]
+[Keyword(Int), Id("main"), Symbol(LParen), Symbol(RParen), Symbol(LBrace), Keyword(Return), Symbol(LParen), Integer(1), Operator(Or), Integer(0), Symbol(RParen), Operator(And), Integer(0), Symbol(Semicolon), Symbol(RBrace)]
 
 Abstract syntax tree:
 Func(
     "main",
     Return(
         BinOp(
-            Slash,
-            Const(
-                4
+            And,
+            BinOp(
+                Or,
+                Const(
+                    1
+                ),
+                Const(
+                    0
+                )
             ),
             Const(
-                2
+                0
             )
         )
     )
@@ -54,16 +60,25 @@ Func(
 Generated assembly:
   .globl _main
 _main:
-  movl $2, %eax
+  movl $1, %eax
   push %eax
-  movl $4, %eax
+  movl $0, %eax
   pop %ecx
-  xor %edx, %edx
-  idivl %ecx
-  movl %ecx, %eax
+  orl %ecx, %eax
+  movl $0, %eax
+  setne %al
+  push %eax
+  movl $0, %eax
+  pop %ecx
+  cmpl $0, %eax
+  setne %cl
+  cmpl $0, %eax
+  movl $0, %eax
+  setne %al
+  andb %cl, %al
   ret
 
-$ ./div
+$ ./precedence_2
 $ echo $?
 2
 ```
