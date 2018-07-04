@@ -13,7 +13,6 @@ This language **does not** aim to be:
 * C
 * Purely functional
 * Inviable for general development
-* Manually memory managed
 
 # Where The Language is Right Now
 All of tests/stage_1 through tests/stage_3.
