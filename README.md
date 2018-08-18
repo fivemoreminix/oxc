@@ -7,7 +7,7 @@ Please keep in mind, **the compiler is currently EXPERIMENTAL, and is NOT PRODUC
 The compiler is roughly following [this article](https://norasandler.com/2017/11/29/Write-a-Compiler.html).
 
 # Backend
-The compiler generates GCC AT&T-style assembly. The backend can be easily replaced with any other. The code generator uses a recursive descent style similar
+The compiler generates 32-bit AT&T-style assembly. The backend can be easily replaced with any other. The code generator uses a recursive descent style similar
 to the parser.
 See `src/generator.rs`.
 
