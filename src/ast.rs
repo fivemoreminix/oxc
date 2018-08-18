@@ -177,8 +177,8 @@ fn parse_equality_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // equality
     expr
 }
 
-fn parse_relational_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // relational_expr = relational_expr, { ("<" | ">" | "<=" | ">="), additive_expr }
-    let mut expr = parse_additive_expr(tokens);
+fn parse_relational_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // relational_expr = bitwise_expr, { ("<" | ">" | "<=" | ">="), bitwise_expr }
+    let mut expr = parse_bitwise_expr(tokens);
     loop {
         match tokens.peek() {
             Some(Token::Operator(peek))
@@ -189,13 +189,33 @@ fn parse_relational_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // relati
                     _ => unsafe { ::std::hint::unreachable_unchecked() } // impossible
                 };
 
-                let next_expr = parse_additive_expr(tokens);
+                let next_expr = parse_bitwise_expr(tokens);
                 expr = Expr::BinOp(op, Box::new(expr), Box::new(next_expr));
             }
             _ => break, // no more matches
         }
     }
     expr
+}
+
+fn parse_bitwise_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // bitwise_expr = additive_expr, { ("&" | "|" | "^" | "<<" | ">>"), additive_expr }
+    // Bitwise expressions like 2 & 1, 2 ^ 1, etc.
+    let mut term = parse_additive_expr(tokens);
+    loop {
+        match tokens.peek() {
+            Some(Token::Operator(peek)) if peek.is_bitwise() => {
+                let mut op = match tokens.next().unwrap() {
+                    Token::Operator(oper) => *oper,
+                    _ => unsafe { ::std::hint::unreachable_unchecked() } // impossible
+                };
+
+                let next_term = parse_additive_expr(tokens);
+                term = Expr::BinOp(op, Box::new(term), Box::new(next_term));
+            }
+            _ => break, // no more matches
+        }
+    }
+    term
 }
 
 fn parse_additive_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // additive_expr = term, { ("+" | "-"), term }
@@ -218,11 +238,11 @@ fn parse_additive_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // additive
     term
 }
 
-fn parse_term(tokens: &mut Peekable<Iter<Token>>) -> Expr { // term = factor, { ("*" | "/"), factor }
+fn parse_term(tokens: &mut Peekable<Iter<Token>>) -> Expr { // term = factor, { ("*" | "/" | "%"), factor }
     let mut term = parse_factor(tokens);
     loop {
         match tokens.peek() {
-            Some(Token::Operator(peek)) if peek == &Operator::Star || peek == &Operator::Slash => {
+            Some(Token::Operator(peek)) if peek == &Operator::Star || peek == &Operator::Slash || peek == &Operator::Modulo => {
                 // More terms
                 let mut op = match tokens.next().unwrap() {
                     Token::Operator(oper) => *oper,

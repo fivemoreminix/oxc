@@ -7,26 +7,29 @@ fn generate_expression(expression: &Expr) -> String {
         Expr::BinOp(op, lhs, rhs) => {
             let mut generated: String;
             match op {
-                Operator::Plus | Operator::Minus | Operator::Star | Operator::Slash => {
+                Operator::Plus | Operator::Minus | Operator::Star | Operator::Slash | Operator::Modulo => {
                     // We reverse who is in ecx register because subtraction is dst - src -> dst.
                     // Otherwise we'd have to `movl %ecx, %eax`. This is an optimization.
                     if *op == Operator::Minus || *op == Operator::Slash {
                         generated = generate_expression(rhs);
                         generated.push_str("  push %eax\n");
                         generated.push_str(&generate_expression(lhs));
-                        generated.push_str("  pop %ecx\n"); // rhs is now in ecx register
+                        generated.push_str("  pop %ecx\n");
+                        // rhs is now in ecx register
                     } else {
                         generated = generate_expression(lhs);
                         generated.push_str("  push %eax\n");
                         generated.push_str(&generate_expression(rhs));
-                        generated.push_str("  pop %ecx\n"); // lhs is now in ecx register
+                        generated.push_str("  pop %ecx\n");
+                        // lhs is now in ecx register
                     }
 
                     match op {
                         Operator::Plus => generated.push_str("  addl %ecx, %eax\n"),
                         Operator::Minus => generated.push_str("  subl %ecx, %eax\n"),
                         Operator::Star => generated.push_str("  imul %ecx, %eax\n"),
-                        Operator::Slash => generated.push_str("  xor %edx, %edx\n  idivl %ecx\n  movl %ecx, %eax\n"),
+                        Operator::Slash => generated.push_str("  idivl %ecx\n  movl %ecx, %eax\n"),
+                        Operator::Modulo => generated.push_str("  idivl %ecx\n  movl %edx, %eax\n"),
                         _ => unimplemented!()
                     }
                 }
@@ -62,6 +65,20 @@ fn generate_expression(expression: &Expr) -> String {
                         Operator::And => "  cmpl $0, %eax\n  setne %cl\n  cmpl $0, %eax\n  movl $0, %eax\n  setne %al\n  andb %cl, %al\n",
                         _ => unsafe { ::std::hint::unreachable_unchecked() },
                     });
+                }
+                _ if op.is_bitwise() => {
+                    generated = generate_expression(lhs);
+                    generated.push_str("  push %eax\n");
+                    generated.push_str(&generate_expression(rhs));
+                    generated.push_str("  pop %ebx\n");
+                    match op {
+                        Operator::BitwiseAND => generated.push_str("  and %eax, %ebx\n"),
+                        Operator::BitwiseOR => generated.push_str("  or %eax, %ebx\n"),
+                        Operator::BitwiseXOR => generated.push_str("  xor %eax, %ebx\n"),
+                        Operator::BitwiseShiftLeft => generated.push_str("  shl %eax, %ebx"),
+                        Operator::BitwiseShiftRight => generated.push_str("  shr %eax, %ebx"),
+                        _ => unimplemented!(), // should be impossible
+                    }
                 }
                 _ => unimplemented!()
             }

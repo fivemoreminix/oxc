@@ -1,29 +1,35 @@
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Symbol {
-    LBrace,
-    RBrace,
-    LParen,
-    RParen,
-    Semicolon,
+    LBrace,    // {
+    RBrace,    // }
+    LParen,    // (
+    RParen,    // )
+    Semicolon, // ;
 }
 use self::Symbol::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Operator {
-    LogicalNegation,    // !
-    Minus,              // -
-    BitwiseComplement,  // ~
-    Plus,               // +
-    Star,               // *
-    Slash,              // /
-    And,                // &&
-    Or,                 // ||
-    EqualEqual,         // ==
-    NotEqual,           // !=
-    LessThan,           // <
-    LessEqual,          // <=
-    GreaterThan,        // >
-    GreaterEqual,       // >=
+    LogicalNegation,   // !
+    Minus,             // -
+    BitwiseComplement, // ~
+    Plus,              // +
+    Star,              // *
+    Slash,             // /
+    Modulo,            // %
+    And,               // &&
+    Or,                // ||
+    EqualEqual,        // ==
+    NotEqual,          // !=
+    LessThan,          // <
+    LessEqual,         // <=
+    GreaterThan,       // >
+    GreaterEqual,      // >=
+    BitwiseAND,        // &
+    BitwiseOR,         // |
+    BitwiseXOR,        // ^
+    BitwiseShiftLeft,  // <<
+    BitwiseShiftRight, // >>
 
 }
 use self::Operator::*;
@@ -34,6 +40,18 @@ impl Operator {
             | Operator::Minus
             | Operator::LogicalNegation
             | Operator::BitwiseComplement => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_bitwise(&self) -> bool {
+        // Does not include BitwiseCompliment because it is unary
+        match self {
+            | Operator::BitwiseAND
+            | Operator::BitwiseOR
+            | Operator::BitwiseXOR
+            | Operator::BitwiseShiftLeft
+            | Operator::BitwiseShiftRight => true,
             _ => false,
         }
     }
@@ -80,19 +98,18 @@ pub fn lex(source: &str) -> Vec<Token> {
             '+' => tokens.push(Token::Operator(Plus)),
             '*' => tokens.push(Token::Operator(Star)),
             '/' => tokens.push(Token::Operator(Slash)),
+            '%' => tokens.push(Token::Operator(Modulo)),
             '&' => if chars.get(i+1) == Some(&'&') {
                 i += 1;
                 tokens.push(Token::Operator(And));
             } else {
-                unimplemented!();
-                //tokens.push(Token::Operator(BitwiseAnd));
+                tokens.push(Token::Operator(BitwiseAND));
             }
             '|' => if chars.get(i+1) == Some(&'|') {
                 i += 1;
                 tokens.push(Token::Operator(Or));
             } else {
-                unimplemented!();
-                //tokens.push(Token::Operator(BitwiseOr));
+                tokens.push(Token::Operator(BitwiseOR));
             }
             '=' => if chars.get(i+1) == Some(&'=') {
                 i += 1;
@@ -103,15 +120,22 @@ pub fn lex(source: &str) -> Vec<Token> {
             '<' => if chars.get(i+1) == Some(&'=') {
                 i += 1;
                 tokens.push(Token::Operator(LessEqual));
+            } else if chars.get(i+1) == Some(&'<') {
+                i += 1;
+                tokens.push(Token::Operator(BitwiseShiftLeft));
             } else {
                 tokens.push(Token::Operator(LessThan));
             }
             '>' => if chars.get(i+1) == Some(&'=') {
                 i += 1;
                 tokens.push(Token::Operator(GreaterEqual));
+            } else if chars.get(i+1) == Some(&'>') {
+                i += 1;
+                tokens.push(Token::Operator(BitwiseShiftRight));
             } else {
                 tokens.push(Token::Operator(GreaterThan));
             }
+            '^' => tokens.push(Token::Operator(BitwiseXOR)),
             _ => {
                 if c.is_alphabetic() || c == '_' {
                     let mut full = c.to_string();
