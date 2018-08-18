@@ -88,7 +88,7 @@ fn generate_expression(expression: &Expr) -> String {
             let mut generated_expr = generate_expression(expr);
             match op {
                 Operator::LogicalNegation => {
-                    generated_expr.push_str("  cmpl $0, %eax\n  xor %eax, %eax\n  sete %al\n");
+                    generated_expr.push_str("  cmpl $0, %eax\n  sete %al\n");
                 }
                 Operator::Minus => {
                     generated_expr.push_str("  neg %eax\n");
