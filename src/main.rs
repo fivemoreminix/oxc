@@ -1,4 +1,5 @@
 // Made by following along with https://norasandler.com/2017/11/29/Write-a-Compiler.html
+#![allow(unused_imports)]
 
 use std::env;
 use std::fs::File;

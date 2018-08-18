@@ -102,7 +102,7 @@ fn generate_statement(statement: &Statement) -> String {
 pub fn generate(ast: &Program) -> String {
     let mut output = String::new();
     match ast {
-        Program::Func(name, statement) => {
+        Program::Func(name, statement) => { // Code generated when a function is made
             output.push_str(&format!("  .globl _{0}\n_{0}:\n", name));
             output.push_str(&generate_statement(statement));
         }
