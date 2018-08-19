@@ -72,11 +72,11 @@ fn generate_expression(expression: &Expr) -> String {
                     generated.push_str(&generate_expression(rhs));
                     generated.push_str("  pop %ebx\n");
                     match op {
-                        Operator::BitwiseAND => generated.push_str("  and %eax, %ebx\n"),
-                        Operator::BitwiseOR => generated.push_str("  or %eax, %ebx\n"),
-                        Operator::BitwiseXOR => generated.push_str("  xor %eax, %ebx\n"),
-                        Operator::BitwiseShiftLeft => generated.push_str("  shl %eax, %ebx\n"),
-                        Operator::BitwiseShiftRight => generated.push_str("  shr %eax, %ebx\n"),
+                        Operator::BitwiseAND => generated.push_str("  and %ebx, %eax\n"),
+                        Operator::BitwiseOR => generated.push_str("  or %ebx, %eax\n"),
+                        Operator::BitwiseXOR => generated.push_str("  xor %ebx, %eax\n"),
+                        Operator::BitwiseShiftLeft => generated.push_str("  shl %ebx, %eax\n"),
+                        Operator::BitwiseShiftRight => generated.push_str("  shr %ebx, %eax\n"),
                         _ => unimplemented!(), // should be impossible
                     }
                 }
