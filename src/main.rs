@@ -1,6 +1,8 @@
 // Made by following along with https://norasandler.com/2017/11/29/Write-a-Compiler.html
 #![allow(unused_imports)]
 
+extern crate peek_nth;
+
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
@@ -27,7 +29,7 @@ fn main() {
     let tokens = lex(&contents);
     println!("Scanner production:\n{:?}\n", tokens);
 
-    let ast = parse(&tokens);
+    let ast = parse(&tokens[..]);
     println!("Abstract syntax tree:\n{:#?}\n", ast);
 
     // Comment out everything below this line to disable code generation

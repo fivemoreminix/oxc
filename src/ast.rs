@@ -1,6 +1,7 @@
 use scanner::*;
 use std::slice::Iter;
 use std::iter::Peekable;
+use peek_nth::{PeekableNth, IteratorExt};
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -24,11 +25,10 @@ pub enum Program {
 }
 
 pub fn parse(tokens: &[Token]) -> Program {
-    let mut tok = tokens.iter().peekable();
-    parse_function(&mut tok)
+    parse_function(&mut tokens.iter().peekable_nth())
 }
 
-fn parse_function(tokens: &mut Peekable<Iter<Token>>) -> Program {
+fn parse_function(tokens: &mut PeekableNth<Iter<Token>>) -> Program {
     match tokens.next() {
         Some(tok_type) => {
             match tok_type {
@@ -53,7 +53,7 @@ fn parse_function(tokens: &mut Peekable<Iter<Token>>) -> Program {
                                                                                         Token::Symbol(Symbol::LBrace) => { // ... Open brace
                                                                                             // Parse multiple statements
                                                                                             let mut statements = Vec::<Statement>::new();
-                                                                                            while tokens.peek() != Some(&&Token::Symbol(Symbol::RBrace)) {
+                                                                                            while tokens.peek_nth(0) != Some(&&Token::Symbol(Symbol::RBrace)) {
                                                                                                 statements.push(parse_statement(tokens));
                                                                                             }
 
@@ -106,9 +106,9 @@ fn parse_function(tokens: &mut Peekable<Iter<Token>>) -> Program {
 // statement = "return", expr, ";"
 //           | "int", identifier, [ "=", expr ], ";"
 //           | expr, ";" ;
-fn parse_statement(tokens: &mut Peekable<Iter<Token>>) -> Statement {
+fn parse_statement(tokens: &mut PeekableNth<Iter<Token>>) -> Statement {
     let statement: Statement;
-    match tokens.peek() {
+    match tokens.peek_nth(0) {
         Some(Token::Keyword(Keyword::Return)) => {
             tokens.next();
             statement = Statement::Return(parse_expr(tokens));
@@ -117,7 +117,7 @@ fn parse_statement(tokens: &mut Peekable<Iter<Token>>) -> Statement {
             tokens.next();
             match tokens.next() {
                 Some(Token::Id(id)) => {
-                    if tokens.peek() == Some(&&Token::Operator(Operator::Assignment)) {
+                    if tokens.peek_nth(0) == Some(&&Token::Operator(Operator::Assignment)) {
                         tokens.next(); // Consume '='
                         statement = Statement::Declare(id.clone(), Some(parse_expr(tokens)));
                     } else {
@@ -139,12 +139,12 @@ fn parse_statement(tokens: &mut Peekable<Iter<Token>>) -> Statement {
 
 // expr = identifier, "=", expr
 //      | logical_or_expr ;
-fn parse_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr {
-    match tokens.peek() {
+fn parse_expr(tokens: &mut PeekableNth<Iter<Token>>) -> Expr {
+    match tokens.peek_nth(0) {
         Some(Token::Id(id)) => {
-            if tokens.peek() == Some(&&Token::Operator(Operator::Assignment)) {
+            if tokens.peek_nth(1) == Some(&&Token::Operator(Operator::Assignment)) {
                 tokens.next(); // Consume identifier
-                tokens.next(); // Consume '='
+                tokens.next(); // Consume assignment operator
                 Expr::Assign(id.clone(), Box::new(parse_expr(tokens)))
             } else {
                 parse_logical_or_expr(tokens)
@@ -154,18 +154,18 @@ fn parse_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr {
     }
 }
 
-fn parse_logical_or_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // logical_or_expr = logical_and_expr, { "||", logical_and_expr }
+fn parse_logical_or_expr(tokens: &mut PeekableNth<Iter<Token>>) -> Expr { // logical_or_expr = logical_and_expr, { "||", logical_and_expr }
     let mut expr = parse_logical_and_expr(tokens);
     loop {
-        match tokens.peek() {
+        match tokens.peek_nth(0) {
             Some(Token::Operator(peek)) if peek == &Operator::Or => {
                 let mut op = match tokens.next().unwrap() {
-                    Token::Operator(oper) => *oper,
+                    Token::Operator(oper) => oper,
                     _ => unsafe { ::std::hint::unreachable_unchecked() } // impossible
                 };
 
                 let next_expr = parse_logical_and_expr(tokens);
-                expr = Expr::BinOp(op, Box::new(expr), Box::new(next_expr));
+                expr = Expr::BinOp(*op, Box::new(expr), Box::new(next_expr));
             }
             _ => break, // no more matches
         }
@@ -173,18 +173,18 @@ fn parse_logical_or_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // logica
     expr
 }
 
-fn parse_logical_and_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // logical_and_expr = equality_expr, { "&&", equality_expr }
+fn parse_logical_and_expr(tokens: &mut PeekableNth<Iter<Token>>) -> Expr { // logical_and_expr = equality_expr, { "&&", equality_expr }
     let mut expr = parse_equality_expr(tokens);
     loop {
-        match tokens.peek() {
+        match tokens.peek_nth(0) {
             Some(Token::Operator(peek)) if peek == &Operator::And => {
                 let mut op = match tokens.next().unwrap() {
-                    Token::Operator(oper) => *oper,
+                    Token::Operator(oper) => oper,
                     _ => unsafe { ::std::hint::unreachable_unchecked() } // impossible
                 };
 
                 let next_expr = parse_equality_expr(tokens);
-                expr = Expr::BinOp(op, Box::new(expr), Box::new(next_expr));
+                expr = Expr::BinOp(*op, Box::new(expr), Box::new(next_expr));
             }
             _ => break, // no more matches
         }
@@ -192,18 +192,18 @@ fn parse_logical_and_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // logic
     expr
 }
 
-fn parse_equality_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // equality_expr = relational_expr, { ("!=" | "=="), relational_expr }
+fn parse_equality_expr(tokens: &mut PeekableNth<Iter<Token>>) -> Expr { // equality_expr = relational_expr, { ("!=" | "=="), relational_expr }
     let mut expr = parse_relational_expr(tokens);
     loop {
-        match tokens.peek() {
+        match tokens.peek_nth(0) {
             Some(Token::Operator(peek)) if peek == &Operator::NotEqual || peek == &Operator::EqualEqual => {
                 let mut op = match tokens.next().unwrap() {
-                    Token::Operator(oper) => *oper,
+                    Token::Operator(oper) => oper,
                     _ => unsafe { ::std::hint::unreachable_unchecked() } // impossible
                 };
 
                 let next_expr = parse_relational_expr(tokens);
-                expr = Expr::BinOp(op, Box::new(expr), Box::new(next_expr));
+                expr = Expr::BinOp(*op, Box::new(expr), Box::new(next_expr));
             }
             _ => break, // no more matches
         }
@@ -211,20 +211,20 @@ fn parse_equality_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // equality
     expr
 }
 
-fn parse_relational_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // relational_expr = bitwise_expr, { ("<" | ">" | "<=" | ">="), bitwise_expr }
+fn parse_relational_expr(tokens: &mut PeekableNth<Iter<Token>>) -> Expr { // relational_expr = bitwise_expr, { ("<" | ">" | "<=" | ">="), bitwise_expr }
     let mut expr = parse_bitwise_expr(tokens);
     loop {
-        match tokens.peek() {
+        match tokens.peek_nth(0) {
             Some(Token::Operator(peek))
             if peek == &Operator::LessThan || peek == &Operator::GreaterThan ||
             peek == &Operator::LessEqual || peek == &Operator::GreaterEqual => {
                 let mut op = match tokens.next().unwrap() {
-                    Token::Operator(oper) => *oper,
+                    Token::Operator(oper) => oper,
                     _ => unsafe { ::std::hint::unreachable_unchecked() } // impossible
                 };
 
                 let next_expr = parse_bitwise_expr(tokens);
-                expr = Expr::BinOp(op, Box::new(expr), Box::new(next_expr));
+                expr = Expr::BinOp(*op, Box::new(expr), Box::new(next_expr));
             }
             _ => break, // no more matches
         }
@@ -232,19 +232,19 @@ fn parse_relational_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // relati
     expr
 }
 
-fn parse_bitwise_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // bitwise_expr = additive_expr, { ("&" | "|" | "^" | "<<" | ">>"), additive_expr }
+fn parse_bitwise_expr(tokens: &mut PeekableNth<Iter<Token>>) -> Expr { // bitwise_expr = additive_expr, { ("&" | "|" | "^" | "<<" | ">>"), additive_expr }
     // Bitwise expressions like 2 & 1, 2 ^ 1, etc.
     let mut term = parse_additive_expr(tokens);
     loop {
-        match tokens.peek() {
+        match tokens.peek_nth(0) {
             Some(Token::Operator(peek)) if peek.is_bitwise() => {
                 let mut op = match tokens.next().unwrap() {
-                    Token::Operator(oper) => *oper,
+                    Token::Operator(oper) => oper,
                     _ => unsafe { ::std::hint::unreachable_unchecked() } // impossible
                 };
 
                 let next_term = parse_additive_expr(tokens);
-                term = Expr::BinOp(op, Box::new(term), Box::new(next_term));
+                term = Expr::BinOp(*op, Box::new(term), Box::new(next_term));
             }
             _ => break, // no more matches
         }
@@ -252,19 +252,19 @@ fn parse_bitwise_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // bitwise_e
     term
 }
 
-fn parse_additive_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // additive_expr = term, { ("+" | "-"), term }
+fn parse_additive_expr(tokens: &mut PeekableNth<Iter<Token>>) -> Expr { // additive_expr = term, { ("+" | "-"), term }
     // Number expressions like 1+1 or 2+3*2 being 2+(3*2) using associativity
     let mut term = parse_term(tokens);
     loop {
-        match tokens.peek() {
+        match tokens.peek_nth(0) {
             Some(Token::Operator(peek)) if peek == &Operator::Plus || peek == &Operator::Minus => {
                 let mut op = match tokens.next().unwrap() {
-                    Token::Operator(oper) => *oper,
+                    Token::Operator(oper) => oper,
                     _ => unsafe { ::std::hint::unreachable_unchecked() } // impossible
                 };
 
                 let next_term = parse_term(tokens);
-                term = Expr::BinOp(op, Box::new(term), Box::new(next_term));
+                term = Expr::BinOp(*op, Box::new(term), Box::new(next_term));
             }
             _ => break, // no more matches
         }
@@ -272,19 +272,19 @@ fn parse_additive_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // additive
     term
 }
 
-fn parse_term(tokens: &mut Peekable<Iter<Token>>) -> Expr { // term = factor, { ("*" | "/" | "%"), factor }
+fn parse_term(tokens: &mut PeekableNth<Iter<Token>>) -> Expr { // term = factor, { ("*" | "/" | "%"), factor }
     let mut term = parse_factor(tokens);
     loop {
-        match tokens.peek() {
+        match tokens.peek_nth(0) {
             Some(Token::Operator(peek)) if peek == &Operator::Star || peek == &Operator::Slash || peek == &Operator::Modulo => {
                 // More terms
                 let mut op = match tokens.next().unwrap() {
-                    Token::Operator(oper) => *oper,
+                    Token::Operator(oper) => oper,
                     _ => unsafe { ::std::hint::unreachable_unchecked() } // impossible
                 };
 
                 let next_term = parse_factor(tokens);
-                term = Expr::BinOp(op, Box::new(term), Box::new(next_term));
+                term = Expr::BinOp(*op, Box::new(term), Box::new(next_term));
             }
             _ => break, // no more matches
         }
@@ -296,7 +296,7 @@ fn parse_term(tokens: &mut Peekable<Iter<Token>>) -> Expr { // term = factor, { 
 //        | unary_op, factor
 //        | int
 //        | identifier ;
-fn parse_factor(tokens: &mut Peekable<Iter<Token>>) -> Expr {
+fn parse_factor(tokens: &mut PeekableNth<Iter<Token>>) -> Expr {
     match tokens.next() {
         Some(Token::Symbol(Symbol::LParen)) => { // factor = "(", expression, ")"
             let expr = parse_expr(tokens); // parse expression in parenthesis
@@ -311,6 +311,6 @@ fn parse_factor(tokens: &mut Peekable<Iter<Token>>) -> Expr {
         }
         Some(Token::Integer(num)) => return Expr::Const(*num), // factor = int
         Some(Token::Id(id)) => return Expr::Var(id.clone()),
-        _ => panic!("Expected factor"),
+        _ => panic!("Expected factor: {:?}", tokens),
     }
 }
