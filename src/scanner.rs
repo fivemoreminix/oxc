@@ -17,6 +17,7 @@ pub enum Operator {
     Star,              // *
     Slash,             // /
     Modulo,            // %
+    Assignment,        // =
     And,               // &&
     Or,                // ||
     EqualEqual,        // ==
@@ -115,7 +116,7 @@ pub fn lex(source: &str) -> Vec<Token> {
                 i += 1;
                 tokens.push(Token::Operator(EqualEqual));
             } else {
-                unimplemented!();
+                tokens.push(Token::Operator(Assignment));
             }
             '<' => if chars.get(i+1) == Some(&'=') {
                 i += 1;

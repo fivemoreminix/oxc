@@ -5,18 +5,22 @@ use std::iter::Peekable;
 #[derive(Debug, Clone)]
 pub enum Expr {
     Const(i32),
+    Assign(String, Box<Expr>),
+    Var(String),
     BinOp(Operator, Box<Expr>, Box<Expr>), // op, lhs, rhs
     UnaryOp(Operator, Box<Expr>),
 }
 
 #[derive(Debug, Clone)]
 pub enum Statement {
-    Return(Expr),
+    Return(Expr),                  // Return statement
+    Declare(String, Option<Expr>), // Variable declaration
+    Expr(Expr),                    // Any expression
 }
 
 #[derive(Debug, Clone)]
 pub enum Program {
-    Func(String, Statement),
+    Func(String, Vec<Statement>),
 }
 
 pub fn parse(tokens: &[Token]) -> Program {
@@ -47,13 +51,17 @@ fn parse_function(tokens: &mut Peekable<Iter<Token>>) -> Program {
                                                                                 Some(tok_open_brace) => { // Open brace ...
                                                                                     match tok_open_brace {
                                                                                         Token::Symbol(Symbol::LBrace) => { // ... Open brace
-                                                                                            let statement = parse_statement(tokens); // Statement
+                                                                                            // Parse multiple statements
+                                                                                            let mut statements = Vec::<Statement>::new();
+                                                                                            while tokens.peek() != Some(&&Token::Symbol(Symbol::RBrace)) {
+                                                                                                statements.push(parse_statement(tokens));
+                                                                                            }
 
                                                                                             match tokens.next() {
                                                                                                 Some(tok_close_brace) => {
                                                                                                     match tok_close_brace {
                                                                                                         Token::Symbol(Symbol::RBrace) => {
-                                                                                                            return Program::Func(id.to_owned(), statement);
+                                                                                                            return Program::Func(id.to_owned(), statements);
                                                                                                         }
                                                                                                         _ => panic!("Expected closing brace"),
                                                                                                     }
@@ -95,32 +103,58 @@ fn parse_function(tokens: &mut Peekable<Iter<Token>>) -> Program {
     }
 }
 
+// statement = "return", expr, ";"
+//           | "int", identifier, [ "=", expr ], ";"
+//           | expr, ";" ;
 fn parse_statement(tokens: &mut Peekable<Iter<Token>>) -> Statement {
-    match tokens.next() {
-        Some(t1) => {
-            match t1 {
-                Token::Keyword(Keyword::Return) => {
-                    let expr = parse_expr(tokens);
-                    match tokens.next() {
-                        Some(tok_semicolon) => {
-                            match tok_semicolon {
-                                Token::Symbol(Symbol::Semicolon) => {
-                                    return Statement::Return(expr);                                                    
-                                }
-                                _ => panic!("Expected semicolon at end of statement"),
-                            }
-                        }
-                        None => panic!("Expected semicolon at end of statement"),
+    let statement: Statement;
+    match tokens.peek() {
+        Some(Token::Keyword(Keyword::Return)) => {
+            tokens.next();
+            statement = Statement::Return(parse_expr(tokens));
+        }
+        Some(Token::Keyword(Keyword::Int)) => {
+            tokens.next();
+            match tokens.next() {
+                Some(Token::Id(id)) => {
+                    if tokens.peek() == Some(&&Token::Operator(Operator::Assignment)) {
+                        tokens.next(); // Consume '='
+                        statement = Statement::Declare(id.clone(), Some(parse_expr(tokens)));
+                    } else {
+                        statement = Statement::Declare(id.clone(), None);
                     }
                 }
-                _ => panic!("Expected return statement"),
+                _ => panic!("Expected identifier for integer declaration"),
             }
         }
         None => panic!("Expected statement"),
+        _ => statement = Statement::Expr(parse_expr(tokens)),
+    }
+
+    match tokens.next() {
+        Some(Token::Symbol(Symbol::Semicolon)) => return statement,
+        _ => panic!("Expected semicolon at end of statement: {:?}", tokens),
     }
 }
 
-fn parse_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // expr = logical_and_expr, { "||", logical_and_expr }
+// expr = identifier, "=", expr
+//      | logical_or_expr ;
+fn parse_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr {
+    match tokens.peek() {
+        Some(Token::Id(id)) => {
+            if tokens.peek() == Some(&&Token::Operator(Operator::Assignment)) {
+                tokens.next(); // Consume identifier
+                tokens.next(); // Consume '='
+                Expr::Assign(id.clone(), Box::new(parse_expr(tokens)))
+            } else {
+                parse_logical_or_expr(tokens)
+            }
+        }
+        _ => parse_logical_or_expr(tokens),
+    }
+}
+
+fn parse_logical_or_expr(tokens: &mut Peekable<Iter<Token>>) -> Expr { // logical_or_expr = logical_and_expr, { "||", logical_and_expr }
     let mut expr = parse_logical_and_expr(tokens);
     loop {
         match tokens.peek() {
@@ -260,26 +294,23 @@ fn parse_term(tokens: &mut Peekable<Iter<Token>>) -> Expr { // term = factor, { 
 
 // factor = "(", expr, ")"
 //        | unary_op, factor
-//        | int;
+//        | int
+//        | identifier ;
 fn parse_factor(tokens: &mut Peekable<Iter<Token>>) -> Expr {
     match tokens.next() {
-        Some(next) => {
-            match next {
-                Token::Symbol(Symbol::LParen) => { // factor = "(", expression, ")"
-                    let expr = parse_expr(tokens); // parse expression in parenthesis
-                    match tokens.next() { // closing parenthesis
-                        Some(Token::Symbol(Symbol::RParen)) => return expr,
-                        Some(_) | None => panic!("Missing closing parenthesis on expression"),
-                    }
-                }
-                Token::Operator(op) if op.is_unary() => { // factor = unary_op, factor
-                    let factor = parse_factor(tokens);
-                    return Expr::UnaryOp(*op, Box::new(factor));
-                }
-                Token::Integer(num) => return Expr::Const(*num), // factor = int
-                _ => panic!("Expected factor"),
+        Some(Token::Symbol(Symbol::LParen)) => { // factor = "(", expression, ")"
+            let expr = parse_expr(tokens); // parse expression in parenthesis
+            match tokens.next() { // closing parenthesis
+                Some(Token::Symbol(Symbol::RParen)) => return expr,
+                _ => panic!("Missing closing parenthesis on expression"),
             }
         }
-        _ => panic!("Missing term"),
+        Some(Token::Operator(op)) if op.is_unary() => { // factor = unary_op, factor
+            let factor = parse_factor(tokens);
+            return Expr::UnaryOp(*op, Box::new(factor));
+        }
+        Some(Token::Integer(num)) => return Expr::Const(*num), // factor = int
+        Some(Token::Id(id)) => return Expr::Var(id.clone()),
+        _ => panic!("Expected factor"),
     }
 }
