@@ -18,59 +18,77 @@ All of tests/stage_1 through tests/stage_4.
 ```rs
 $ cargo build
 ...
-$ .\target\debug\oxc.exe .\test\stage_4\valid\precedence_2.c
-.\test\stage_4\valid\precedence_2.c:
+$ .\target\debug\oxc.exe .\test\stage_5\valid\exp_return_val.c
+.\test\stage_5\valid\exp_return_val.c:
 int main() {
-    return (1 || 0) && 0;
+    int a;
+    int b;
+    a = b = 4;
+    return a - b;
 }
 
 Scanner production:
-[Keyword(Int), Id("main"), Symbol(LParen), Symbol(RParen), Symbol(LBrace), Keyword(Return), Symbol(LParen), Integer(1), Operator(Or), Integer(0), Symbol(RParen), Operator(And), Integer(0), Symbol(Semicolon), Symbol(RBrace)]
+[Keyword(Int), Id("main"), Symbol(LParen), Symbol(RParen), Symbol(LBrace), Keyword(Int), Id("a"), Symbol(Semicolon), Keyword(Int), Id("b"), Symbol(Semicolon), Id("a"), Operator(Assignment), Id("b"),
+Operator(Assignment), Integer(4), Symbol(Semicolon), Keyword(Return), Id("a"), Operator(Minus), Id("b"), Symbol(Semicolon), Symbol(RBrace)]
 
 Abstract syntax tree:
 Func(
     "main",
-    Return(
-        BinOp(
-            And,
-            BinOp(
-                Or,
-                Const(
-                    1
-                ),
-                Const(
-                    0
+    [
+        Declare(
+            "a",
+            None
+        ),
+        Declare(
+            "b",
+            None
+        ),
+        Expr(
+            Assign(
+                "a",
+                Assign(
+                    "b",
+                    Const(
+                        4
+                    )
                 )
-            ),
-            Const(
-                0
+            )
+        ),
+        Return(
+            BinOp(
+                Minus,
+                Var(
+                    "a"
+                ),
+                Var(
+                    "b"
+                )
             )
         )
-    )
+    ]
 )
 
 Generated assembly:
   .globl _main
 _main:
-  movl $1, %eax
+  push %ebp
+  movl %esp, %ebp
+  pushl $0
+  pushl $0
+  movl $4, %eax
+  movl %eax, -8(%ebp)
+  movl %eax, -4(%ebp)
+  movl -8(%ebp), %eax
   push %eax
-  movl $0, %eax
+  movl -4(%ebp), %eax
   pop %ecx
-  orl %ecx, %eax
-  movl $0, %eax
-  setne %al
-  push %eax
-  movl $0, %eax
-  pop %ecx
-  cmpl $0, %eax
-  setne %cl
-  cmpl $0, %eax
-  movl $0, %eax
-  setne %al
-  andb %cl, %al
+  subl %ecx, %eax
+_main_epilog:
+  movl %ebp, %esp
+  pop %ebp
   ret
 
-$ ./precedence_2
+$ ./exp_return_val.c
 $ echo $?
-2
+0
 ```
