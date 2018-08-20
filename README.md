@@ -88,7 +88,7 @@ _main_epilog:
   pop %ebp
   ret
 
-$ ./exp_return_val.c
+$ ./exp_return_val
 $ echo $?
 0
 ```
