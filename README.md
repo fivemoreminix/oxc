@@ -1,5 +1,5 @@
 # Summary
-A C compiler written in Rust for understanding compilers and experimentation. Should be easy to fork from and work with.
+A C compiler written in Rust for experimentation and understanding compilers. Should be easy to fork from and work with.
 Everything is handwritten and the compiler uses no third-party libraries.
 
 Please keep in mind, **the compiler is currently EXPERIMENTAL, and is NOT PRODUCTION READY.**
