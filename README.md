@@ -1,5 +1,5 @@
 # Summary
-A C compiler written in Rust for understanding compilers and experimentation. Should be easy to fork from and work with.
+A C compiler written in Rust for experimentation and understanding compilers. Should be easy to fork from and work with.
 Everything is handwritten and the compiler uses no third-party libraries.
 
 Please keep in mind, **the compiler is currently EXPERIMENTAL, and is NOT PRODUCTION READY.**
@@ -12,7 +12,7 @@ to the parser.
 See `src/generator.rs`.
 
 # Where The Language is Right Now
-All of tests/stage_1 through tests/stage_4.
+All of tests/stage_1 through tests/stage_5.
 
 # Testing
 ```rs
@@ -88,7 +88,7 @@ _main_epilogue:
   pop %ebp
   ret
 
-$ ./exp_return_val.c
+$ ./exp_return_val
 $ echo $?
 0
 ```
