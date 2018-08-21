@@ -83,7 +83,7 @@ _main:
   movl -4(%ebp), %eax
   pop %ecx
   subl %ecx, %eax
-_main_epilog:
+_main_epilogue:
   movl %ebp, %esp
   pop %ebp
   ret

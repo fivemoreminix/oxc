@@ -132,7 +132,7 @@ fn generate_statement(statement: &Statement, function_name: &str, variables: &mu
     match statement {
         Statement::Return(expr) => {
             output.push_str(&generate_expression(expr, variables, stack_index));
-            output.push_str(&format!("  goto _{}_epilog\n", function_name));
+            output.push_str(&format!("  goto _{}_epilogue\n", function_name));
         }
         Statement::Declare(name, value) => {
             if variables.contains_key(name) {
@@ -169,16 +169,16 @@ pub fn generate(ast: &Program) -> String {
                 output.push_str(&generate_statement(statement, &name, &mut variable_map, &mut stack_index));
             }
 
-            if !output.ends_with(&format!("goto _{}_epilog\n", name)) {
+            if !output.ends_with(&format!("goto _{}_epilogue\n", name)) {
                 // No return issued, so we return zero by default
                 output.push_str("  movl $0, %eax\n");
             } else {
-                // Output ends with "goto _{}_epilog", which is dumb because we define the epilog immediately after
-                output = output[0..output.len() - format!("  goto _{}_epilog\n", name).len()].to_owned();
+                // Output ends with "goto _{}_epilogue", which is dumb because we define the epilogue immediately after
+                output = output[0..output.len() - format!("  goto _{}_epilogue\n", name).len()].to_owned();
             }
 
             // Function epilogue
-            output.push_str(&format!("_{}_epilog:\n  movl %ebp, %esp\n  pop %ebp\n  ret\n", name));
+            output.push_str(&format!("_{}_epilogue:\n  movl %ebp, %esp\n  pop %ebp\n  ret\n", name));
         }
     }
     output
