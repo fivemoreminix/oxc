@@ -3,7 +3,7 @@ function = "int", identifier, "(", ")", "{", { statement }, "}";
 statement = "return", expr, ";"
           | "int", identifier, [ "=", expr ], ";"
           | expr, ";" ;
-expr = identifier, "=", expr
+expr = identifier, assignment_operator, expr
      | logical_or_expr ;
 logical_or_expr = logical_and_expr, { "||", logical_and_expr };
 logical_and_expr = equality_expr, { "&&", equality_expr };
@@ -17,3 +17,4 @@ factor = "(", expr, ")"
        | int
        | identifier ;
 unary_op = "!" | "~" | "-";
+assignment_operator = "=" | "+=" | "-=";

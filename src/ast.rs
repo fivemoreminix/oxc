@@ -6,7 +6,7 @@ use peek_nth::{PeekableNth, IteratorExt};
 #[derive(Debug, Clone)]
 pub enum Expr {
     Const(i32),
-    Assign(String, Box<Expr>),
+    Assign(Operator, String, Box<Expr>),
     Var(String),
     BinOp(Operator, Box<Expr>, Box<Expr>), // op, lhs, rhs
     UnaryOp(Operator, Box<Expr>),
@@ -137,17 +137,18 @@ fn parse_statement(tokens: &mut PeekableNth<Iter<Token>>) -> Statement {
     }
 }
 
-// expr = identifier, "=", expr
+// expr = identifier, assignment_operator, expr
 //      | logical_or_expr ;
 fn parse_expr(tokens: &mut PeekableNth<Iter<Token>>) -> Expr {
     match tokens.peek_nth(0) {
         Some(Token::Id(id)) => {
-            if tokens.peek_nth(1) == Some(&&Token::Operator(Operator::Assignment)) {
-                tokens.next(); // Consume identifier
-                tokens.next(); // Consume assignment operator
-                Expr::Assign(id.clone(), Box::new(parse_expr(tokens)))
-            } else {
-                parse_logical_or_expr(tokens)
+            match tokens.peek_nth(1) {
+                Some(Token::Operator(op)) if op.is_assignment() => {
+                    tokens.next(); // Consume identifier
+                    tokens.next(); // Consume assignment operator
+                    Expr::Assign(*op, id.clone(), Box::new(parse_expr(tokens)))
+                }
+                _ => parse_logical_or_expr(tokens),
             }
         }
         _ => parse_logical_or_expr(tokens),

@@ -18,6 +18,16 @@ pub enum Operator {
     Slash,             // /
     Modulo,            // %
     Assignment,        // =
+    PlusAssign,        // +=
+    MinusAssign,       // -=
+    SlashAssign,       // /=
+    StarAssign,        // *=
+    ModAssign,         // %=
+    LeftShiftAssign,   // <<=
+    RightShiftAssign,  // >>=
+    ANDAssign,         // &=
+    ORAssign,          // |=
+    XORAssign,         // ^=
     And,               // &&
     Or,                // ||
     EqualEqual,        // ==
@@ -53,6 +63,23 @@ impl Operator {
             | Operator::BitwiseXOR
             | Operator::BitwiseShiftLeft
             | Operator::BitwiseShiftRight => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_assignment(&self) -> bool {
+        match self {
+            | Operator::Assignment
+            | Operator::PlusAssign
+            | Operator::MinusAssign
+            | Operator::SlashAssign
+            | Operator::StarAssign
+            | Operator::ModAssign
+            | Operator::LeftShiftAssign
+            | Operator::RightShiftAssign
+            | Operator::ANDAssign
+            | Operator::ORAssign
+            | Operator::XORAssign => true,
             _ => false,
         }
     }
@@ -95,20 +122,51 @@ pub fn lex(source: &str) -> Vec<Token> {
             } else {
                 tokens.push(Token::Operator(LogicalNegation));
             }
-            '-' => tokens.push(Token::Operator(Minus)),
-            '+' => tokens.push(Token::Operator(Plus)),
-            '*' => tokens.push(Token::Operator(Star)),
-            '/' => tokens.push(Token::Operator(Slash)),
-            '%' => tokens.push(Token::Operator(Modulo)),
+            '-' => if chars.get(i+1) == Some(&'=') {
+                i += 1;
+                tokens.push(Token::Operator(MinusAssign));
+            } else {
+                tokens.push(Token::Operator(Minus));
+            }
+            '+' => if chars.get(i+1) == Some(&'=') {
+                i += 1;
+                tokens.push(Token::Operator(PlusAssign));
+            } else {
+                tokens.push(Token::Operator(Plus));
+            }
+            '*' => if chars.get(i+1) == Some(&'=') {
+                i += 1;
+                tokens.push(Token::Operator(StarAssign));
+            } else {
+                tokens.push(Token::Operator(Star));
+            }
+            '/' => if chars.get(i+1) == Some(&'=') {
+                i += 1;
+                tokens.push(Token::Operator(SlashAssign));
+            } else {
+                tokens.push(Token::Operator(Slash));
+            }
+            '%' => if chars.get(i+1) == Some(&'=') {
+                i += 1;
+                tokens.push(Token::Operator(ModAssign));
+            } else {
+                tokens.push(Token::Operator(Modulo));
+            }
             '&' => if chars.get(i+1) == Some(&'&') {
                 i += 1;
                 tokens.push(Token::Operator(And));
+            } else if chars.get(i+1) == Some(&'=') {
+                i += 1;
+                tokens.push(Token::Operator(ANDAssign));
             } else {
                 tokens.push(Token::Operator(BitwiseAND));
             }
             '|' => if chars.get(i+1) == Some(&'|') {
                 i += 1;
                 tokens.push(Token::Operator(Or));
+            } else if chars.get(i+1) == Some(&'=') {
+                i += 1;
+                tokens.push(Token::Operator(ORAssign));
             } else {
                 tokens.push(Token::Operator(BitwiseOR));
             }
@@ -123,7 +181,12 @@ pub fn lex(source: &str) -> Vec<Token> {
                 tokens.push(Token::Operator(LessEqual));
             } else if chars.get(i+1) == Some(&'<') {
                 i += 1;
-                tokens.push(Token::Operator(BitwiseShiftLeft));
+                if chars.get(i+1) == Some(&'=') {
+                    i += 1;
+                    tokens.push(Token::Operator(LeftShiftAssign));
+                } else {
+                    tokens.push(Token::Operator(BitwiseShiftLeft));
+                }
             } else {
                 tokens.push(Token::Operator(LessThan));
             }
@@ -132,11 +195,21 @@ pub fn lex(source: &str) -> Vec<Token> {
                 tokens.push(Token::Operator(GreaterEqual));
             } else if chars.get(i+1) == Some(&'>') {
                 i += 1;
-                tokens.push(Token::Operator(BitwiseShiftRight));
+                if chars.get(i+1) == Some(&'=') {
+                    i += 1;
+                    tokens.push(Token::Operator(RightShiftAssign));
+                } else {
+                    tokens.push(Token::Operator(BitwiseShiftRight));
+                }
             } else {
                 tokens.push(Token::Operator(GreaterThan));
             }
-            '^' => tokens.push(Token::Operator(BitwiseXOR)),
+            '^' => if chars.get(i+1) == Some(&'=') {
+                i += 1;
+                tokens.push(Token::Operator(XORAssign));
+            } else {
+                tokens.push(Token::Operator(BitwiseXOR));
+            }
             _ => {
                 if c.is_alphabetic() || c == '_' {
                     let mut full = c.to_string();

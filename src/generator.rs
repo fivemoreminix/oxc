@@ -16,16 +16,12 @@ fn generate_expression(expression: &Expr, variables: &mut VariableMap, stack_ind
                     // Otherwise we'd have to `movl %ecx, %eax`. This is an optimization.
                     if *op == Operator::Minus || *op == Operator::Slash {
                         generated = generate_expression(rhs, variables, stack_index);
-                        generated.push_str("  push %eax\n");
+                        generated.push_str("  movl %eax, %ecx\n"); // rhs is now in ecx register
                         generated.push_str(&generate_expression(lhs, variables, stack_index));
-                        generated.push_str("  pop %ecx\n");
-                        // rhs is now in ecx register
                     } else {
                         generated = generate_expression(lhs, variables, stack_index);
-                        generated.push_str("  push %eax\n");
+                        generated.push_str("  movl %eax, %ecx\n"); // lhs is now in ecx register
                         generated.push_str(&generate_expression(rhs, variables, stack_index));
-                        generated.push_str("  pop %ecx\n");
-                        // lhs is now in ecx register
                     }
 
                     match op {
@@ -104,7 +100,7 @@ fn generate_expression(expression: &Expr, variables: &mut VariableMap, stack_ind
             }
             return generated_expr;
         }
-        Expr::Assign(name, expr) => {
+        Expr::Assign(op, name, expr) => { // `op` is guaranteed valid assignment operator by parser
             let mut output = generate_expression(expr, variables, stack_index);
 
             if !variables.contains_key(name) {
@@ -112,7 +108,16 @@ fn generate_expression(expression: &Expr, variables: &mut VariableMap, stack_ind
             }
 
             let offset: isize = *variables.get(name).unwrap();
-            output.push_str(&format!("  movl %eax, {}(%ebp)\n", offset));
+            match op {
+                Operator::Assignment => output.push_str(&format!("  movl %eax, {}(%ebp)\n", offset)),
+                Operator::PlusAssign => output.push_str(&format!("  addl %eax, {}(%ebp)\n", offset)),
+                Operator::MinusAssign => output.push_str(&format!("  subl %eax, {}(%ebp)\n", offset)),
+                Operator::StarAssign => output.push_str(&format!("  imul %eax, {}(%ebp)\n", offset)),
+                Operator::SlashAssign => output.push_str(&format!("  movl %eax, %ecx\n  movl {0}(%ebp), %eax\n  idivl %ecx\n  movl %ecx, %eax\n  movl %eax, {0}(%ebp)\n", offset)),
+                Operator::ModAssign => output.push_str(&format!("  movl %eax, %ecx\n  movl {0}(%ebp), %eax\n  idivl %ecx\n  movl %edx, %eax\n  movl %eax, {0}(%ebp)\n", offset)),
+                // NOTE: Operators LeftShiftAssign, RightShiftAssign, ANDAssign, ORAssign, and XORAssign are all omitted until further development.
+                _ => unimplemented!(),
+            }
 
             return output;
         }
