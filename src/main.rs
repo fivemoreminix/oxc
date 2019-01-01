@@ -74,6 +74,7 @@ fn main() {
             file_name.to_owned()
         };
 
+        println!("Linking...");
         Command::new("gcc")
             .args(&["-m32", &format!("{}.s", file_name), "-o", &output_name])
             .spawn()
