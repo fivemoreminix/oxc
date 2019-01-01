@@ -103,11 +103,15 @@ fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: 
         Expr::Assign(op, name, expr) => { // `op` is guaranteed valid assignment operator by parser
             let mut output = generate_expression(expr, variables, inner_scope, stack_index, counter);
 
-            if !variables.contains_key(name) && !inner_scope.contains_key(name) {
+            let offset: isize;
+            if variables.contains_key(name) {
+                offset = *variables.get(name).unwrap();
+            } else if inner_scope.contains_key(name) {
+                offset = *inner_scope.get(name).unwrap();
+            } else {
                 panic!("Attempting to assign to an undeclared variable");
             }
 
-            let offset: isize = *variables.get(name).unwrap_or(inner_scope.get(name).unwrap());
             match op {
                 Operator::Assignment => output.push_str(&format!("  movl %eax, {}(%ebp)\n", offset)),
                 Operator::PlusAssign => output.push_str(&format!("  addl %eax, {}(%ebp)\n", offset)),
@@ -122,11 +126,15 @@ fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: 
             return output;
         }
         Expr::Var(name) => {
-            if !variables.contains_key(name) && !inner_scope.contains_key(name) {
-                panic!("Attempting to reference an undeclared variable");
+            let offset: isize;
+            if variables.contains_key(name) {
+                offset = *variables.get(name).unwrap();
+            } else if inner_scope.contains_key(name) {
+                offset = *inner_scope.get(name).unwrap();
+            } else {
+                panic!("Attempting to assign to an undeclared variable");
             }
-
-            let offset: isize = *variables.get(name).unwrap_or(inner_scope.get(name).unwrap());
+            
             return format!("  movl {}(%ebp), %eax\n", offset);
         }
         Expr::Conditional(expr1, expr2, expr3) => {
@@ -216,7 +224,7 @@ fn generate_statement(statement: &Statement, function_name: &str, variables: &Va
             }
         }
         Statement::Compound(block_items) => {
-            return generate_block(block_items, function_name, variables, stack_index, counter);
+            return generate_block(block_items, function_name, inner_scope, stack_index, counter);
         }
     }
     output
@@ -231,7 +239,7 @@ fn generate_block_item(block_item: &BlockItem, function_name: &str, variables: &
 
 fn generate_block(block_items: &Vec<BlockItem>, function_name: &str, outer_scope: &VariableMap, stack_index: &mut isize, counter: &mut u32) -> String {
     let mut output = String::new();
-    let mut inner_scope = outer_scope.clone();
+    let mut inner_scope = VariableMap::new();
     for block_item in block_items {
         output.push_str(&generate_block_item(block_item, function_name, outer_scope, &mut inner_scope, stack_index, counter));
     }
