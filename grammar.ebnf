@@ -1,8 +1,10 @@
 program = function;
-function = "int", identifier, "(", ")", "{", { statement }, "}";
+function = "int", identifier, "(", ")", "{", { block_item }, "}";
+block_item = statement | declaration ;
+declaration = "int", identifier, [ "=", expr ], ";" ;
 statement = "return", expr, ";"
-          | "int", identifier, [ "=", expr ], ";"
-          | expr, ";" ;
+          | expr, ";"
+          | "if", "(", expr, ")", statement, [ "else", statement ] ;
 expr = identifier, assignment_operator, expr
      | logical_or_expr ;
 logical_or_expr = logical_and_expr, { "||", logical_and_expr };

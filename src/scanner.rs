@@ -5,6 +5,7 @@ pub enum Symbol {
     LParen,    // (
     RParen,    // )
     Semicolon, // ;
+    Colon,     // :
 }
 use self::Symbol::*;
 
@@ -41,6 +42,7 @@ pub enum Operator {
     BitwiseXOR,        // ^
     BitwiseShiftLeft,  // <<
     BitwiseShiftRight, // >>
+    QuestionMark,      // ?
 
 }
 use self::Operator::*;
@@ -89,6 +91,8 @@ impl Operator {
 pub enum Keyword {
     Int,
     Return,
+    If,
+    Else,
 }
 use self::Keyword::*;
 
@@ -115,6 +119,7 @@ pub fn lex(source: &str) -> Vec<Token> {
             '(' => tokens.push(Token::Symbol(LParen)),
             ')' => tokens.push(Token::Symbol(RParen)),
             ';' => tokens.push(Token::Symbol(Semicolon)),
+            ':' => tokens.push(Token::Symbol(Colon)),
             '~' => tokens.push(Token::Operator(BitwiseComplement)),
             '!' => if chars.get(i+1) == Some(&'=') {
                 i += 1;
@@ -210,6 +215,7 @@ pub fn lex(source: &str) -> Vec<Token> {
             } else {
                 tokens.push(Token::Operator(BitwiseXOR));
             }
+            '?' => tokens.push(Token::Operator(QuestionMark)),
             _ => {
                 if c.is_alphabetic() || c == '_' {
                     let mut full = c.to_string();
@@ -227,6 +233,8 @@ pub fn lex(source: &str) -> Vec<Token> {
                     match &full.to_lowercase()[..] {
                         "int" => tokens.push(Token::Keyword(Int)),
                         "return" => tokens.push(Token::Keyword(Return)),
+                        "if" => tokens.push(Token::Keyword(If)),
+                        "else" => tokens.push(Token::Keyword(Else)),
                         _ => tokens.push(Token::Id(full)),
                     }
                 }
