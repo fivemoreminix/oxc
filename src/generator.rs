@@ -40,7 +40,7 @@ fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: 
                     generated.push_str("  push %eax\n");
                     generated.push_str(&generate_expression(lhs, variables, inner_scope, stack_index, counter)); // lhs is now in eax register
                     generated.push_str("  pop %ecx\n"); // rhs is now in ecx register
-                    generated.push_str("  cmpl %eax, %ecx\n  movl $0, %eax\n");
+                    generated.push_str("  cmpl %eax, %ecx\n");
                     generated.push_str(match op {
                         Operator::EqualEqual   => "  sete %al\n",
                         Operator::NotEqual     => "  setne %al\n",
@@ -144,8 +144,8 @@ fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: 
             let label = format!("_t{}", *counter);
             *counter += 1;
 
-            // if condition is false, jump to _e3
-            output.push_str("  cmpl $0, %eax\n");
+            // if condition is false, jump to _tN_else
+            // output.push_str("  cmpl $0, %eax\n");
             output.push_str(&format!("  je {}_else\n", label));
 
             // condition is true
@@ -199,8 +199,8 @@ fn generate_statement(statement: &Statement, function_name: &str, variables: &Va
             let label = format!("_c{}", *counter);
             *counter += 1;
 
-            // if condition is false, jump to _e3
-            output.push_str("  cmpl $0, %eax\n");
+            // if condition is false, jump to _cN_else
+            // output.push_str("  cmpl $0, %eax\n");
             output.push_str(&format!("  je {}_else\n", label));
 
             // condition is true
@@ -243,6 +243,13 @@ fn generate_block(block_items: &Vec<BlockItem>, function_name: &str, outer_scope
     for block_item in block_items {
         output.push_str(&generate_block_item(block_item, function_name, outer_scope, &mut inner_scope, stack_index, counter));
     }
+
+    // deallocate variables
+    if !inner_scope.is_empty() {
+        let bytes_to_deallocate = 4 * inner_scope.len();
+        output.push_str(&format!("  addl ${}, %esp\n", bytes_to_deallocate));
+    }
+
     output
 }
 

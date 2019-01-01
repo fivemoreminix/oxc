@@ -76,7 +76,7 @@ fn main() {
 
         println!("Linking...");
         Command::new("gcc")
-            .args(&["-m32", &format!("{}.s", file_name), "-o", &output_name])
+            .args(&["-m32", "-Wall", &format!("{}.s", file_name), "-o", &output_name])
             .spawn()
             .unwrap()
             .wait()
