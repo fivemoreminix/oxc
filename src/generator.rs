@@ -134,7 +134,7 @@ fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: 
             } else {
                 panic!("Attempting to assign to an undeclared variable");
             }
-            
+
             return format!("  movl {}(%ebp), %eax\n", offset);
         }
         Expr::Conditional(expr1, expr2, expr3) => {
@@ -190,7 +190,7 @@ fn generate_statement(statement: &Statement, function_name: &str, variables: &Va
     match statement {
         Statement::Return(expr) => {
             output.push_str(&generate_expression(expr, variables, inner_scope, stack_index, counter));
-            output.push_str(&format!("  goto _{}_epilogue\n", function_name));
+            output.push_str(&format!("  jmp _{}_epilogue\n", function_name));
         }
         Statement::Expr(expr) => output.push_str(&generate_expression(expr, variables, inner_scope, stack_index, counter)),
         Statement::Conditional(condition, expr1, expr2) => {
@@ -270,12 +270,12 @@ pub fn generate_function(function: &FunctionDeclaration, counter: &mut u32) -> S
 
             output.push_str(&generate_block(block_items, &name, &mut variable_map, &mut stack_index, counter));
 
-            if !output.ends_with(&format!("goto _{}_epilogue\n", name)) {
+            if !output.ends_with(&format!("jmp _{}_epilogue\n", name)) {
                 // No return issued, so we return zero by default
                 output.push_str("  movl $0, %eax\n");
             } else {
-                // Output ends with "goto _{}_epilogue", which is dumb because we define the epilogue immediately after
-                output = output[0..output.len() - format!("  goto _{}_epilogue\n", name).len()].to_owned();
+                // Output ends with "jmp _{}_epilogue", which is dumb because we define the epilogue immediately after
+                output = output[0..output.len() - format!("  jmp _{}_epilogue\n", name).len()].to_owned();
             }
 
             // Function epilogue
