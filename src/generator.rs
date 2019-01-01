@@ -41,7 +41,8 @@ fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: 
                     generated.push_str(&generate_expression(lhs, variables, inner_scope, stack_index, counter)); // lhs is now in eax register
                     generated.push_str("  pop %ecx\n"); // rhs is now in ecx register
                     generated.push_str("  cmpl %eax, %ecx\n");
-                    generated.push_str(match op {
+                    generated.push_str("  xor %eax, %eax\n"); // zero eax register
+                    generated.push_str(match op { // Ex. `sete %al` will set 1 on lower byte of eax if true
                         Operator::EqualEqual   => "  sete %al\n",
                         Operator::NotEqual     => "  setne %al\n",
                         Operator::LessThan     => "  setl %al\n",
@@ -145,7 +146,7 @@ fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: 
             *counter += 1;
 
             // if condition is false, jump to _tN_else
-            // output.push_str("  cmpl $0, %eax\n");
+            output.push_str("  cmpl $0, %eax\n");
             output.push_str(&format!("  je {}_else\n", label));
 
             // condition is true
@@ -163,7 +164,7 @@ fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: 
     }
 }
 
-fn generate_declaration(declaration: &Declaration, function_name: &str, outer_scope: &VariableMap, current_scope: &mut VariableMap, stack_index: &mut isize, counter: &mut u32) -> String {
+fn generate_declaration(declaration: &Declaration, outer_scope: &VariableMap, current_scope: &mut VariableMap, stack_index: &mut isize, counter: &mut u32) -> String {
     let mut output = String::new();
     match declaration {
         Declaration::Declare(name, value) => {
@@ -200,7 +201,7 @@ fn generate_statement(statement: &Statement, function_name: &str, variables: &Va
             *counter += 1;
 
             // if condition is false, jump to _cN_else
-            // output.push_str("  cmpl $0, %eax\n");
+            output.push_str("  cmpl $0, %eax\n");
             output.push_str(&format!("  je {}_else\n", label));
 
             // condition is true
@@ -232,7 +233,7 @@ fn generate_statement(statement: &Statement, function_name: &str, variables: &Va
 
 fn generate_block_item(block_item: &BlockItem, function_name: &str, variables: &VariableMap, inner_scope: &mut VariableMap, stack_index: &mut isize, counter: &mut u32) -> String {
     match block_item {
-        BlockItem::Declaration(declaration) => generate_declaration(declaration, function_name, variables, inner_scope, stack_index, counter),
+        BlockItem::Declaration(declaration) => generate_declaration(declaration, variables, inner_scope, stack_index, counter),
         BlockItem::Statement(statement) => generate_statement(statement, function_name, variables, inner_scope, stack_index, counter),
     }
 }
