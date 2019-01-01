@@ -12,60 +12,94 @@ to the parser.
 See `src/generator.rs`.
 
 # Where The Language is Right Now
-All of tests/stage_1 through tests/stage_5.
+All of tests/stage_1 through tests/stage_6.
 
 # Testing
 ```rs
 $ cargo build
 ...
-$ .\target\debug\oxc.exe .\test\stage_5\valid\exp_return_val.c
-.\test\stage_5\valid\exp_return_val.c:
+$ .\target\debug\oxc.exe .\test\stage_6\valid\statement\if_nested.c
+.\test\stage_6\valid\statement\if_nested.c:
 int main() {
-    int a;
-    int b;
-    a = b = 4;
-    return a - b;
+    int a = 1;
+    int b = 0;
+    if (a)
+        b = 1;
+    else if (b)
+        b = 2;
+    return b;
 }
 
 Scanner production:
-[Keyword(Int), Id("main"), Symbol(LParen), Symbol(RParen), Symbol(LBrace), Keyword(Int), Id("a"), Symbol(Semicolon), Keyword(Int), Id("b"), Symbol(Semicolon), Id("a"), Operator(Assignment), Id("b"),
-Operator(Assignment), Integer(4), Symbol(Semicolon), Keyword(Return), Id("a"), Operator(Minus), Id("b"), Symbol(Semicolon), Symbol(RBrace)]
+[Keyword(Int), Id("main"), Symbol(LParen), Symbol(RParen), Symbol(LBrace), Keyword(Int), Id("a"), Operator(Assignment), Integer(1), Symbol(Semicolon), Keyword(Int), Id("b"), Operator(Assignment), Integer(0), Symbol(Semicolon), Keyword(If), Symbol(LParen), Id("a"), Symbol(RParen), Id("b"), Operator(Assignment), Integer(1), Symbol(Semicolon), Keyword(Else), Keyword(If), Symbol(LParen), Id("b"), Symbol(RParen), Id("b"), Operator(Assignment), Integer(2), Symbol(Semicolon), Keyword(Return), Id("b"), Symbol(Semicolon), Symbol(RBrace)]
 
 Abstract syntax tree:
-Func(
-    "main",
-    [
-        Declare(
-            "a",
-            None
-        ),
-        Declare(
-            "b",
-            None
-        ),
-        Expr(
-            Assign(
-                "a",
-                Assign(
+Function(
+    Function(
+        "main",
+        [
+            Declaration(
+                Declare(
+                    "a",
+                    Some(
+                        Const(
+                            1
+                        )
+                    )
+                )
+            ),
+            Declaration(
+                Declare(
                     "b",
-                    Const(
-                        4
+                    Some(
+                        Const(
+                            0
+                        )
+                    )
+                )
+            ),
+            Statement(
+                Conditional(
+                    Var(
+                        "a"
+                    ),
+                    Expr(
+                        Assign(
+                            Assignment,
+                            "b",
+                            Const(
+                                1
+                            )
+                        )
+                    ),
+                    Some(
+                        Conditional(
+                            Var(
+                                "b"
+                            ),
+                            Expr(
+                                Assign(
+                                    Assignment,
+                                    "b",
+                                    Const(
+                                        2
+                                    )
+                                )
+                            ),
+                            None
+                        )
+                    )
+                )
+            ),
+            Statement(
+                Return(
+                    Var(
+                        "b"
                     )
                 )
             )
-        ),
-        Return(
-            BinOp(
-                Minus,
-                Var(
-                    "a"
-                ),
-                Var(
-                    "b"
-                )
-            )
-        )
-    ]
+        ]
+    )
 )
 
 Generated assembly:
@@ -73,22 +107,31 @@ Generated assembly:
 _main:
   push %ebp
   movl %esp, %ebp
-  pushl $0
-  pushl $0
-  movl $4, %eax
-  movl %eax, -8(%ebp)
-  movl %eax, -4(%ebp)
-  movl -8(%ebp), %eax
-  push %eax
+  movl $1, %eax
+  pushl %eax
+  movl $0, %eax
+  pushl %eax
   movl -4(%ebp), %eax
-  pop %ecx
-  subl %ecx, %eax
+  cmpl $0, %eax
+  je _c0_else
+  movl $1, %eax
+  movl %eax, -8(%ebp)
+  jmp _c0_end
+_c0_else:
+  movl -8(%ebp), %eax
+  cmpl $0, %eax
+  je _c1_else
+  movl $2, %eax
+  movl %eax, -8(%ebp)
+_c1_else:
+_c0_end:
+  movl -8(%ebp), %eax
 _main_epilogue:
   movl %ebp, %esp
   pop %ebp
   ret
 
-$ ./exp_return_val
+$ ./if_nested
 $ echo $?
-0
+1
 ```
