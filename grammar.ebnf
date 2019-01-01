@@ -4,7 +4,8 @@ block_item = statement | declaration ;
 declaration = "int", identifier, [ "=", expr ], ";" ;
 statement = "return", expr, ";"
           | expr, ";"
-          | "if", "(", expr, ")", statement, [ "else", statement ] ;
+          | "if", "(", expr, ")", statement, [ "else", statement ]
+          | "{", { block_item }, "}" ;
 expr = identifier, assignment_operator, expr
      | conditional_expr ;
 conditional_expr = logical_or_expr, [ "?", expr, ":", conditional_expr ] ;

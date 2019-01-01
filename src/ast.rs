@@ -17,7 +17,8 @@ pub enum Expr {
 pub enum Statement {
     Return(Expr),                  // Return statement
     Expr(Expr),                    // Any expression
-    Conditional(Expr, Box<Statement>, Option<Box<Statement>>),
+    Conditional(Expr, Box<Statement>, Option<Box<Statement>>), // if (expr) statement1 else statement2
+    Compound(Vec<BlockItem>),      // { int foo = 2; foo += 3; }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -194,6 +195,17 @@ fn parse_statement(tokens: &mut PeekableNth<Iter<Token>>) -> Statement {
                 }
                 _ => panic!("Expected opening parenthesis before condition on 'if' statement"),
             }
+        }
+        Some(Token::Symbol(Symbol::LBrace)) => {
+            tokens.next(); // consume opening brace
+
+            let mut block_items = Vec::<BlockItem>::new();
+            while tokens.peek() != Some(&&Token::Symbol(Symbol::RBrace)) {
+                block_items.push(parse_block_item(tokens));
+            }
+            tokens.next(); // consume closing brace
+
+            return Statement::Compound(block_items);
         }
         None => panic!("Expected statement"),
         _ => {
