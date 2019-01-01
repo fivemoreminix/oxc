@@ -232,7 +232,18 @@ pub fn generate_function(function: &FunctionDeclaration, counter: &mut u32) -> S
         FunctionDeclaration::Function(name, block_items) => {
             let mut variable_map = VariableMap::new();
             let mut stack_index = -4isize; // ESP - 4
-            output.push_str(&format!("  .globl _{0}\n_{0}:\n", name));
+
+            if name == "main" {
+                if cfg!(target_os = "linux") {
+                    output.push_str(&format!("  .globl main\nmain:\n"));
+                } else if cfg!(target_os = "windows") {
+                    output.push_str(&format!("  .globl _main\n_main:\n"));
+                } else {
+                    unimplemented!();
+                }
+            } else {
+                output.push_str(&format!("  .globl _{0}\n_{0}:\n", name));
+            }
 
             // Function prologue
             output.push_str("  push %ebp\n  movl %esp, %ebp\n");
