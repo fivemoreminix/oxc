@@ -10,6 +10,7 @@ pub enum Expr {
     Var(String),
     BinOp(Operator, Box<Expr>, Box<Expr>), // op, lhs, rhs
     UnaryOp(Operator, Box<Expr>),
+    Conditional(Box<Expr>, Box<Expr>, Box<Expr>), // ternary if: expr1 ? expr2 : expr3
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -40,10 +41,12 @@ pub enum Program {
     Function(FunctionDeclaration),
 }
 
+// program = function;
 pub fn parse(tokens: &[Token]) -> Program {
     parse_function(&mut tokens.iter().peekable_nth())
 }
 
+// function = "int", identifier, "(", ")", "{", { block_item }, "}";
 fn parse_function(tokens: &mut PeekableNth<Iter<Token>>) -> Program {
     match tokens.next() {
         Some(tok_type) => {
@@ -205,7 +208,7 @@ fn parse_statement(tokens: &mut PeekableNth<Iter<Token>>) -> Statement {
 }
 
 // expr = identifier, assignment_operator, expr
-//      | logical_or_expr ;
+//      | conditional_expr ;
 fn parse_expr(tokens: &mut PeekableNth<Iter<Token>>) -> Expr {
     match tokens.peek_nth(0) {
         Some(Token::Id(id)) => {
@@ -215,10 +218,28 @@ fn parse_expr(tokens: &mut PeekableNth<Iter<Token>>) -> Expr {
                     tokens.next(); // Consume assignment operator
                     Expr::Assign(*op, id.clone(), Box::new(parse_expr(tokens)))
                 }
-                _ => parse_logical_or_expr(tokens),
+                _ => parse_conditional_expr(tokens),
             }
         }
-        _ => parse_logical_or_expr(tokens),
+        _ => parse_conditional_expr(tokens),
+    }
+}
+
+// conditional_expr = logical_or_expr, [ "?", expr, ":", conditional_expr ] ;
+fn parse_conditional_expr(tokens: &mut PeekableNth<Iter<Token>>) -> Expr {
+    let expr1 = parse_logical_or_expr(tokens);
+    match tokens.peek_nth(0) {
+        Some(Token::Operator(Operator::QuestionMark)) => {
+            tokens.next();
+            let expr2 = parse_expr(tokens);
+            match tokens.next() {
+                Some(Token::Symbol(Symbol::Colon)) => {
+                    Expr::Conditional(Box::new(expr1), Box::new(expr2), Box::new(parse_conditional_expr(tokens)))
+                }
+                _ => panic!("Expected colon in ternary expression"),
+            }
+        }
+        _ => expr1,
     }
 }
 
