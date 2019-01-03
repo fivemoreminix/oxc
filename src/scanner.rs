@@ -93,8 +93,22 @@ pub enum Keyword {
     Return,
     If,
     Else,
+    For,
+    Do,
+    While,
+    Break,
+    Continue,
 }
 use self::Keyword::*;
+
+impl Keyword {
+    pub fn is_type(&self) -> bool {
+        match self {
+            Int => true,
+            _ => false,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Token {
@@ -235,6 +249,11 @@ pub fn lex(source: &str) -> Vec<Token> {
                         "return" => tokens.push(Token::Keyword(Return)),
                         "if" => tokens.push(Token::Keyword(If)),
                         "else" => tokens.push(Token::Keyword(Else)),
+                        "for" => tokens.push(Token::Keyword(For)),
+                        "do" => tokens.push(Token::Keyword(Do)),
+                        "while" => tokens.push(Token::Keyword(While)),
+                        "break" => tokens.push(Token::Keyword(Break)),
+                        "continue" => tokens.push(Token::Keyword(Continue)),
                         _ => tokens.push(Token::Id(full)),
                     }
                 }

@@ -5,23 +5,33 @@ use scanner::*;
 
 type VariableMap = HashMap<String, isize>; // name, location on stack
 
-fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: &mut VariableMap, stack_index: &mut isize, counter: &mut u32) -> String {
+#[derive(Debug, PartialEq)]
+struct Context<'a> {
+    outer_scope: &'a VariableMap,
+    current_scope: &'a mut VariableMap,
+    stack_index: &'a mut isize,
+    counter: &'a mut u32,
+    loop_label_end: String,
+    loop_label_begin: String,
+}
+
+fn generate_expression(expression: &Option<&Expr>, variables: &VariableMap, inner_scope: &mut VariableMap, stack_index: &mut isize, counter: &mut u32) -> String {
     match expression {
-        Expr::Const(num) => return format!("  movl ${}, %eax\n", num),
-        Expr::BinOp(op, lhs, rhs) => {
+        Some(Expr::Const(num)) => return format!("  movl ${}, %eax\n", num),
+        Some(Expr::BinOp(op, lhs, rhs)) => {
             let mut generated: String;
             match op {
                 Operator::Plus | Operator::Minus | Operator::Star | Operator::Slash | Operator::Modulo => {
                     // We reverse who is in ecx register because subtraction is dst - src -> dst.
                     // Otherwise we'd have to `movl %ecx, %eax`. This is an optimization.
                     if *op == Operator::Minus || *op == Operator::Slash {
-                        generated = generate_expression(rhs, variables, inner_scope, stack_index, counter);
+                        generated = generate_expression(&Some(&**rhs), variables, inner_scope, stack_index, counter);
                         generated.push_str("  movl %eax, %ecx\n"); // rhs is now in ecx register
-                        generated.push_str(&generate_expression(lhs, variables, inner_scope, stack_index, counter));
+                        generated.push_str(&generate_expression(&Some(&**lhs), variables, inner_scope, stack_index, counter));
                     } else {
-                        generated = generate_expression(lhs, variables, inner_scope, stack_index, counter);
+                        generated = generate_expression(&Some(&**lhs), variables, inner_scope, stack_index, counter);
                         generated.push_str("  movl %eax, %ecx\n"); // lhs is now in ecx register
-                        generated.push_str(&generate_expression(rhs, variables, inner_scope, stack_index, counter));
+                        generated.push_str(&generate_expression(&Some(&**rhs), variables, inner_scope, stack_index, counter));
                     }
 
                     match op {
@@ -36,9 +46,9 @@ fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: 
                 Operator::EqualEqual  | Operator::NotEqual  | // Equality and comparison
                 Operator::LessThan    | Operator::LessEqual |
                 Operator::GreaterThan | Operator::GreaterEqual => {
-                    generated = generate_expression(rhs, variables, inner_scope, stack_index, counter);
+                    generated = generate_expression(&Some(&**rhs), variables, inner_scope, stack_index, counter);
                     generated.push_str("  push %eax\n");
-                    generated.push_str(&generate_expression(lhs, variables, inner_scope, stack_index, counter)); // lhs is now in eax register
+                    generated.push_str(&generate_expression(&Some(&**lhs), variables, inner_scope, stack_index, counter)); // lhs is now in eax register
                     generated.push_str("  pop %ecx\n"); // rhs is now in ecx register
                     generated.push_str("  cmpl %eax, %ecx\n");
                     generated.push_str("  xor %eax, %eax\n"); // zero eax register
@@ -53,9 +63,9 @@ fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: 
                     });
                 }
                 Operator::Or | Operator::And => {
-                    generated = generate_expression(lhs, variables, inner_scope, stack_index, counter);
+                    generated = generate_expression(&Some(&**lhs), variables, inner_scope, stack_index, counter);
                     generated.push_str("  push %eax\n");
-                    generated.push_str(&generate_expression(rhs, variables, inner_scope, stack_index, counter));
+                    generated.push_str(&generate_expression(&Some(&**rhs), variables, inner_scope, stack_index, counter));
                     generated.push_str("  pop %ecx\n");
                     generated.push_str(match op {
                         Operator::Or  => "  orl %ecx, %eax\n  movl $0, %eax\n  setne %al\n",
@@ -68,9 +78,9 @@ fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: 
                     });
                 }
                 _ if op.is_bitwise() => {
-                    generated = generate_expression(lhs, variables, inner_scope, stack_index, counter);
+                    generated = generate_expression(&Some(&**lhs), variables, inner_scope, stack_index, counter);
                     generated.push_str("  push %eax\n");
-                    generated.push_str(&generate_expression(rhs, variables, inner_scope, stack_index, counter));
+                    generated.push_str(&generate_expression(&Some(&**rhs), variables, inner_scope, stack_index, counter));
                     generated.push_str("  pop %ebx\n");
                     match op {
                         Operator::BitwiseAND => generated.push_str("  and %ebx, %eax\n"),
@@ -85,8 +95,8 @@ fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: 
             }
             return generated;
         }
-        Expr::UnaryOp(op, expr) => {
-            let mut generated_expr = generate_expression(expr, variables, inner_scope, stack_index, counter);
+        Some(Expr::UnaryOp(op, expr)) => {
+            let mut generated_expr = generate_expression(&Some(&**expr), variables, inner_scope, stack_index, counter);
             match op {
                 Operator::LogicalNegation => {
                     generated_expr.push_str("  cmpl $0, %eax\n  sete %al\n");
@@ -101,8 +111,8 @@ fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: 
             }
             return generated_expr;
         }
-        Expr::Assign(op, name, expr) => { // `op` is guaranteed valid assignment operator by parser
-            let mut output = generate_expression(expr, variables, inner_scope, stack_index, counter);
+        Some(Expr::Assign(op, name, expr)) => { // `op` is guaranteed valid assignment operator by parser
+            let mut output = generate_expression(&Some(&**expr), variables, inner_scope, stack_index, counter);
 
             let offset: isize;
             if variables.contains_key(name) {
@@ -126,7 +136,7 @@ fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: 
 
             return output;
         }
-        Expr::Var(name) => {
+        Some(Expr::Var(name)) => {
             let offset: isize;
             if variables.contains_key(name) {
                 offset = *variables.get(name).unwrap();
@@ -138,9 +148,9 @@ fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: 
 
             return format!("  movl {}(%ebp), %eax\n", offset);
         }
-        Expr::Conditional(expr1, expr2, expr3) => {
+        Some(Expr::Conditional(expr1, expr2, expr3)) => {
             // conditional
-            let mut output = generate_expression(expr1, variables, inner_scope, stack_index, counter);
+            let mut output = generate_expression(&Some(&**expr1), variables, inner_scope, stack_index, counter);
 
             let label = format!("_t{}", *counter);
             *counter += 1;
@@ -150,17 +160,18 @@ fn generate_expression(expression: &Expr, variables: &VariableMap, inner_scope: 
             output.push_str(&format!("  je {}_else\n", label));
 
             // condition is true
-            output.push_str(&generate_expression(expr2, variables, inner_scope, stack_index, counter));
+            output.push_str(&generate_expression(&Some(&**expr2), variables, inner_scope, stack_index, counter));
             output.push_str(&format!("  jmp {}_end\n", label));
 
             // condition is false
             output.push_str(&format!("{}_else:\n", label));
-            output.push_str(&generate_expression(expr3, variables, inner_scope, stack_index, counter));
+            output.push_str(&generate_expression(&Some(&**expr3), variables, inner_scope, stack_index, counter));
 
             output.push_str(&format!("{}_end:\n", label));
 
             return output;
         }
+        None => return String::new(),
     }
 }
 
@@ -173,10 +184,12 @@ fn generate_declaration(declaration: &Declaration, outer_scope: &VariableMap, cu
             }
 
             if let Some(expr) = value {
-                output.push_str(&generate_expression(expr, outer_scope, current_scope, stack_index, counter));
-                output.push_str("  pushl %eax\n");
+                output.push_str(&generate_expression(&Some(&*expr), outer_scope, current_scope, stack_index, counter));
+                //output.push_str("  pushl %eax\n");
+                output.push_str(&format!("  movl %eax, {}(%ebp)", stack_index));
             } else {
-                output.push_str("  pushl $0\n");
+                //output.push_str("  pushl $0\n");
+                output.push_str(&format!("  movl $0, {}(%ebp)", stack_index));
             }
 
             current_scope.insert(name.clone(), *stack_index);
@@ -190,12 +203,12 @@ fn generate_statement(statement: &Statement, function_name: &str, variables: &Va
     let mut output = String::new();
     match statement {
         Statement::Return(expr) => {
-            output.push_str(&generate_expression(expr, variables, inner_scope, stack_index, counter));
+            output.push_str(&generate_expression(&Some(&*expr), variables, inner_scope, stack_index, counter));
             output.push_str(&format!("  jmp _{}_epilogue\n", function_name));
         }
-        Statement::Expr(expr) => output.push_str(&generate_expression(expr, variables, inner_scope, stack_index, counter)),
+        Statement::Expr(expr) => output.push_str(&generate_expression(&expr.as_ref(), variables, inner_scope, stack_index, counter)),
         Statement::Conditional(condition, expr1, expr2) => {
-            output.push_str(&generate_expression(condition, variables, inner_scope, stack_index, counter));
+            output.push_str(&generate_expression(&Some(&*condition), variables, inner_scope, stack_index, counter));
 
             let label = format!("_c{}", *counter);
             *counter += 1;
@@ -226,6 +239,85 @@ fn generate_statement(statement: &Statement, function_name: &str, variables: &Va
         }
         Statement::Compound(block_items) => {
             return generate_block(block_items, function_name, inner_scope, stack_index, counter);
+        }
+        Statement::ForExpr(clause, control, post_expr, statement) => {
+            let label = format!("_f{}", *counter);
+            *counter += 1;
+
+            output.push_str(&generate_expression(&clause.as_ref(), variables, inner_scope, stack_index, counter));
+
+            output.push_str(&format!("{}_begin:\n", label));
+
+            output.push_str(&generate_expression(&Some(&control), variables, inner_scope, stack_index, counter));
+
+            output.push_str("  cmpl $0, %eax\n");
+            output.push_str(&format!("  je {}_end\n", label));
+
+            output.push_str(&generate_statement(statement, function_name, variables, inner_scope, stack_index, counter));
+
+            output.push_str(&generate_expression(&post_expr.as_ref(), variables, inner_scope, stack_index, counter));
+
+            output.push_str(&format!("  jmp {0}_begin\n{0}_end:\n", label));
+        }
+        Statement::ForDecl(clause, control, post_expr, statement) => {
+            let label = format!("_f{}", *counter);
+            *counter += 1;
+
+            let mut init_scope = VariableMap::new();
+            output.push_str(&generate_declaration(clause, variables, &mut init_scope, stack_index, counter));
+
+            output.push_str(&format!("{}_begin:\n", label));
+
+            output.push_str(&generate_expression(&Some(&control), variables, inner_scope, stack_index, counter));
+
+            output.push_str("  cmpl $0, %eax\n");
+            output.push_str(&format!("  je {}_end\n", label));
+
+            output.push_str(&generate_statement(statement, function_name, variables, inner_scope, stack_index, counter));
+
+            output.push_str(&generate_expression(&post_expr.as_ref(), variables, inner_scope, stack_index, counter));
+
+            output.push_str(&format!("  jmp {0}_begin\n{0}_end:\n", label));
+
+            // deallocate initialization variable(s)
+            if !init_scope.is_empty() {
+                let bytes_to_deallocate = 4 * inner_scope.len();
+                output.push_str(&format!("  addl ${}, %esp\n", bytes_to_deallocate));
+            }
+        }
+        Statement::While(expr, statement) => {
+            let label = format!("_w{}", *counter);
+            *counter += 1;
+
+            output.push_str(&format!("{}_begin:\n", label));
+
+            output.push_str(&generate_expression(&Some(&expr), variables, inner_scope, stack_index, counter));
+
+            output.push_str("  cmpl $0, %eax\n");
+            output.push_str(&format!("  je {}_end\n", label));
+
+            output.push_str(&generate_statement(statement, function_name, variables, inner_scope, stack_index, counter));
+
+            output.push_str(&format!("  jmp {0}_begin\n{0}_end:\n", label));
+        }
+        Statement::Do(statement, expr) => {
+            let label = format!("_w{}", *counter);
+            *counter += 1;
+
+            output.push_str(&format!("{}_begin:\n", label));
+
+            output.push_str(&generate_statement(statement, function_name, variables, inner_scope, stack_index, counter));
+
+            output.push_str(&generate_expression(&Some(&expr), variables, inner_scope, stack_index, counter));
+
+            output.push_str("  cmpl $0, %eax\n");
+            output.push_str(&format!("  jne {}_begin\n", label));
+        }
+        Statement::Break => {
+            unimplemented!();
+        }
+        Statement::Continue => {
+            unimplemented!();
         }
     }
     output

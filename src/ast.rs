@@ -16,9 +16,16 @@ pub enum Expr {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Return(Expr),                  // Return statement
-    Expr(Expr),                    // Any expression
+    Expr(Option<Expr>),            // Any expression
     Conditional(Expr, Box<Statement>, Option<Box<Statement>>), // if (expr) statement1 else statement2
     Compound(Vec<BlockItem>),      // { int foo = 2; foo += 3; }
+    // for (initial clause; controlling expression; post-expression)
+    ForExpr(Option<Expr>, Expr, Option<Expr>, Box<Statement>), // for (;;) say_hello();
+    ForDecl(Declaration, Expr, Option<Expr>, Box<Statement>), // for (int a = 0; a < 3; a++) say_hello();
+    While(Expr, Box<Statement>),
+    Do(Box<Statement>, Expr),
+    Break,
+    Continue,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -203,17 +210,138 @@ fn parse_statement(tokens: &mut PeekableNth<Iter<Token>>) -> Statement {
             while tokens.peek() != Some(&&Token::Symbol(Symbol::RBrace)) {
                 block_items.push(parse_block_item(tokens));
             }
-            tokens.next(); // consume closing brace
+
+            if tokens.next() != Some(&Token::Symbol(Symbol::RBrace)) {
+                panic!("Expected closing brace after compound statement");
+            }
 
             return Statement::Compound(block_items);
         }
+        Some(Token::Keyword(Keyword::For)) => {
+            tokens.next(); // consume 'for'
+
+            if tokens.next() != Some(&Token::Symbol(Symbol::LParen)) {
+                panic!("Expected closing parenthesis to begin 'for' loop");
+            }
+
+            match tokens.peek() {
+                Some(Token::Keyword(kwd)) if kwd.is_type() => { // ForDecl
+                    let initial_clause = parse_declaration(tokens);
+                    // no need to consume semicolon; declaration requires one
+                    let controlling_expr = parse_expr_option(tokens);
+                    
+                    if tokens.next() != Some(&Token::Symbol(Symbol::Semicolon)) {
+                        panic!("Expected semicolon after second expression in 'for' loop");
+                    }
+
+                    let post_expr = parse_expr_option(tokens);
+
+                    if tokens.next() != Some(&Token::Symbol(Symbol::RParen)) {
+                        panic!("Expected closing parenthesis after 'for' loop");
+                    }
+
+                    return Statement::ForDecl(initial_clause, match controlling_expr {
+                        Some(expr) => expr,
+                        None => Expr::Const(1),
+                    }, post_expr, Box::new(parse_statement(tokens)));
+                }
+                _ => { // ForExpr
+                    let initial_clause = parse_expr_option(tokens);
+                    
+                    if tokens.next() != Some(&Token::Symbol(Symbol::Semicolon)) {
+                        panic!("Expected semicolon after first expression in 'for' loop");
+                    }
+
+                    let controlling_expr = parse_expr_option(tokens);
+
+                    if tokens.next() != Some(&Token::Symbol(Symbol::Semicolon)) {
+                        panic!("Expected semicolon after second expression in 'for' loop");
+                    }
+                    
+                    let post_expr = parse_expr_option(tokens);
+
+                    if tokens.next() != Some(&Token::Symbol(Symbol::RParen)) {
+                        panic!("Expected closing parenthesis after 'for' loop");
+                    }
+
+                    return Statement::ForExpr(initial_clause, match controlling_expr {
+                        Some(expr) => expr,
+                        None => Expr::Const(1),
+                    }, post_expr, Box::new(parse_statement(tokens)));
+                }
+            }
+        }
+        Some(Token::Keyword(Keyword::While)) => {
+            tokens.next(); // consume 'while'
+
+            if tokens.next() != Some(&Token::Symbol(Symbol::LParen)) {
+                panic!("Expected opening parenthesis to begin 'while' loop");
+            }
+
+            let expr = parse_expr(tokens);
+
+            if tokens.next() != Some(&Token::Symbol(Symbol::RParen)) {
+                panic!("Expected closing parenthesis after 'while' loop");
+            }
+
+            return Statement::While(expr, Box::new(parse_statement(tokens)));
+        }
+        Some(Token::Keyword(Keyword::Do)) => {
+            tokens.next(); // consume 'do'
+
+            let statement = parse_statement(tokens);
+
+            if tokens.next() != Some(&Token::Keyword(Keyword::While)) {
+                panic!("Expected 'while' after 'do' expression");
+            }
+
+            let expr = parse_expr(tokens);
+
+            if tokens.next() != Some(&Token::Symbol(Symbol::RParen)) {
+                panic!("Expected closing parenthesis after 'while' loop");
+            }
+
+            return Statement::Do(Box::new(statement), expr);
+        }
+        Some(Token::Keyword(Keyword::Break)) => {
+            tokens.next();
+
+            if tokens.next() != Some(&Token::Symbol(Symbol::Semicolon)) {
+                panic!("Expected semicolon after statement");
+            }
+
+            return Statement::Break;
+        }
+        Some(Token::Keyword(Keyword::Continue)) => {
+            tokens.next();
+
+            if tokens.next() != Some(&Token::Symbol(Symbol::Semicolon)) {
+                panic!("Expected semicolon after statement");
+            }
+
+            return Statement::Continue;
+        }
         None => panic!("Expected statement"),
         _ => {
-            statement = Statement::Expr(parse_expr(tokens));
+            statement = Statement::Expr(parse_expr_option(tokens));
 
             match tokens.next() {
                 Some(Token::Symbol(Symbol::Semicolon)) => return statement,
                 _ => panic!("Expected semicolon at end of statement: {:?}", tokens),
+            }
+        }
+    }
+}
+
+// expr_option = expr, ";" | ";" ;
+fn parse_expr_option(tokens: &mut PeekableNth<Iter<Token>>) -> Option<Expr> {
+    match tokens.peek() {
+        Some(Token::Symbol(Symbol::Semicolon)) | Some(Token::Symbol(Symbol::RParen)) => None,
+        _ => {
+            let expression = parse_expr(tokens);
+            match tokens.next() {
+                Some(Token::Symbol(Symbol::Semicolon)) => Some(expression),
+                _ => panic!("Expected semicolon after optional expression"),
             }
         }
     }
