@@ -6,13 +6,13 @@ statement = "return", expr, ";"
           | expr_option (* null statement *)
           | "if", "(", expr, ")", statement, [ "else", statement ]
           | "{", { block_item }, "}"
-          | "for", "(", expr_option, expr_option, expr_option, ")", statement
-          | "for", "(", declaration, expr_option, expr_option, ")", statement
+          | "for", "(", expr_option, ";", expr_option, ";", expr_option, ")", statement
+          | "for", "(", declaration, expr_option, ";", expr_option, ")", statement
           | "while", "(", expr, ")", statement
           | "do", statement, "while", "(", expr, ")", ";"
           | "break", ";"
           | "continue", ";" ;
-expr_option = expr, ";" | ";" ;
+expr_option = expr | ";" ;
 expr = identifier, assignment_operator, expr
      | conditional_expr ;
 conditional_expr = logical_or_expr, [ "?", expr, ":", conditional_expr ] ;

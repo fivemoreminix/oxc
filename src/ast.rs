@@ -339,8 +339,8 @@ fn parse_expr_option(tokens: &mut PeekableNth<Iter<Token>>) -> Option<Expr> {
         Some(Token::Symbol(Symbol::Semicolon)) | Some(Token::Symbol(Symbol::RParen)) => None,
         _ => {
             let expression = parse_expr(tokens);
-            match tokens.next() {
-                Some(Token::Symbol(Symbol::Semicolon)) => Some(expression),
+            match tokens.peek() {
+                Some(Token::Symbol(Symbol::Semicolon)) | Some(Token::Symbol(Symbol::RParen)) => Some(expression),
                 _ => panic!("Expected semicolon after optional expression"),
             }
         }
