@@ -1,3 +1,6 @@
+use std::iter::Peekable;
+use std::str::Chars;
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Symbol {
     LBrace,    // {
@@ -118,163 +121,256 @@ pub enum Token {
     Id(String),
     Integer(i32),
 }
+use self::Token::*;
 
-pub fn lex(source: &str) -> Vec<Token> {
-    let mut tokens = Vec::<Token>::new();
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TokenData<'a> {
+    pub token: Token,
+    pub slice: &'a str,
+    pub line: usize,
+    pub col: usize,
+}
 
-    let chars: Vec<char> = source.chars().collect();
+impl<'a> TokenData<'a> {
+    pub fn new(token: Token, slice: &'a str, line: usize, col: usize) -> TokenData {
+        TokenData { token, slice, line, col }
+    }
+}
 
-    let mut i = 0usize;
-    while i < chars.len() {
-        let c = chars[i];
-        match c {
-            '{' => tokens.push(Token::Symbol(LBrace)),
-            '}' => tokens.push(Token::Symbol(RBrace)),
-            '(' => tokens.push(Token::Symbol(LParen)),
-            ')' => tokens.push(Token::Symbol(RParen)),
-            ';' => tokens.push(Token::Symbol(Semicolon)),
-            ':' => tokens.push(Token::Symbol(Colon)),
-            '~' => tokens.push(Token::Operator(BitwiseComplement)),
-            '!' => if chars.get(i+1) == Some(&'=') {
-                i += 1;
-                tokens.push(Token::Operator(NotEqual));
-            } else {
-                tokens.push(Token::Operator(LogicalNegation));
-            }
-            '-' => if chars.get(i+1) == Some(&'=') {
-                i += 1;
-                tokens.push(Token::Operator(MinusAssign));
-            } else {
-                tokens.push(Token::Operator(Minus));
-            }
-            '+' => if chars.get(i+1) == Some(&'=') {
-                i += 1;
-                tokens.push(Token::Operator(PlusAssign));
-            } else {
-                tokens.push(Token::Operator(Plus));
-            }
-            '*' => if chars.get(i+1) == Some(&'=') {
-                i += 1;
-                tokens.push(Token::Operator(StarAssign));
-            } else {
-                tokens.push(Token::Operator(Star));
-            }
-            '/' => if chars.get(i+1) == Some(&'=') {
-                i += 1;
-                tokens.push(Token::Operator(SlashAssign));
-            } else {
-                tokens.push(Token::Operator(Slash));
-            }
-            '%' => if chars.get(i+1) == Some(&'=') {
-                i += 1;
-                tokens.push(Token::Operator(ModAssign));
-            } else {
-                tokens.push(Token::Operator(Modulo));
-            }
-            '&' => if chars.get(i+1) == Some(&'&') {
-                i += 1;
-                tokens.push(Token::Operator(And));
-            } else if chars.get(i+1) == Some(&'=') {
-                i += 1;
-                tokens.push(Token::Operator(ANDAssign));
-            } else {
-                tokens.push(Token::Operator(BitwiseAND));
-            }
-            '|' => if chars.get(i+1) == Some(&'|') {
-                i += 1;
-                tokens.push(Token::Operator(Or));
-            } else if chars.get(i+1) == Some(&'=') {
-                i += 1;
-                tokens.push(Token::Operator(ORAssign));
-            } else {
-                tokens.push(Token::Operator(BitwiseOR));
-            }
-            '=' => if chars.get(i+1) == Some(&'=') {
-                i += 1;
-                tokens.push(Token::Operator(EqualEqual));
-            } else {
-                tokens.push(Token::Operator(Assignment));
-            }
-            '<' => if chars.get(i+1) == Some(&'=') {
-                i += 1;
-                tokens.push(Token::Operator(LessEqual));
-            } else if chars.get(i+1) == Some(&'<') {
-                i += 1;
-                if chars.get(i+1) == Some(&'=') {
-                    i += 1;
-                    tokens.push(Token::Operator(LeftShiftAssign));
-                } else {
-                    tokens.push(Token::Operator(BitwiseShiftLeft));
-                }
-            } else {
-                tokens.push(Token::Operator(LessThan));
-            }
-            '>' => if chars.get(i+1) == Some(&'=') {
-                i += 1;
-                tokens.push(Token::Operator(GreaterEqual));
-            } else if chars.get(i+1) == Some(&'>') {
-                i += 1;
-                if chars.get(i+1) == Some(&'=') {
-                    i += 1;
-                    tokens.push(Token::Operator(RightShiftAssign));
-                } else {
-                    tokens.push(Token::Operator(BitwiseShiftRight));
-                }
-            } else {
-                tokens.push(Token::Operator(GreaterThan));
-            }
-            '^' => if chars.get(i+1) == Some(&'=') {
-                i += 1;
-                tokens.push(Token::Operator(XORAssign));
-            } else {
-                tokens.push(Token::Operator(BitwiseXOR));
-            }
-            '?' => tokens.push(Token::Operator(QuestionMark)),
-            _ => {
-                if c.is_alphabetic() || c == '_' {
-                    let mut full = c.to_string();
-                    i += 1;
-                    while i < chars.len() { // Read an identifier
-                        if chars[i].is_alphabetic() || chars[i].is_digit(10) {
-                            full.push(chars[i]);
-                        } else {
-                            i -= 1;
-                            break;
-                        }
-                        i += 1;
-                    }
+pub struct Lexer<'a> {
+    source: &'a str,
+    chars: Peekable<Chars<'a>>,
+    pos: usize, // index in source
+    line: usize, 
+    col: usize,
+    first_run: bool,
+}
 
-                    match &full.to_lowercase()[..] {
-                        "int" => tokens.push(Token::Keyword(Int)),
-                        "return" => tokens.push(Token::Keyword(Return)),
-                        "if" => tokens.push(Token::Keyword(If)),
-                        "else" => tokens.push(Token::Keyword(Else)),
-                        "for" => tokens.push(Token::Keyword(For)),
-                        "do" => tokens.push(Token::Keyword(Do)),
-                        "while" => tokens.push(Token::Keyword(While)),
-                        "break" => tokens.push(Token::Keyword(Break)),
-                        "continue" => tokens.push(Token::Keyword(Continue)),
-                        _ => tokens.push(Token::Id(full)),
-                    }
-                }
-                else if c.is_digit(10) {
-                    let mut full = c.to_string();
-                    i += 1;
-                    while i < chars.len() { // Read the entire number
-                        if chars[i].is_digit(10) {
-                            full.push(chars[i]);
-                        } else {
-                            i -= 1;
-                            break;
-                        }
-                        i += 1;
-                    }
-                    tokens.push(Token::Integer(full.parse().unwrap()));
-                }
-            }
+impl<'a> Lexer<'a> {
+    /// The source must contain no return-carriage characters: `\r`.
+    pub fn new(source: &'a str) -> Lexer {
+        Lexer {
+            source,
+            chars: source.chars().peekable(),
+            pos: 0,
+            line: 1,
+            col: 1,
+            first_run: true,
         }
-        i += 1;
     }
 
-    tokens
+    /// To be used instead of `self.chars.next()`
+    fn next_char(&mut self) -> Option<char> {
+        if let Some(c) = self.chars.next() {
+            if !self.first_run {
+                // Offset counter by -1, so that
+                // self.pos returns last position
+                // instead of next search position.
+                self.pos += 1;
+            } else {
+                self.first_run = false;
+            }
+
+            if c == '\n' {
+                self.line += 1;
+                self.col = 0;
+            } else {
+                self.col += 1;
+            }
+            
+            Some(c)
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> Iterator for Lexer<'a> {
+    type Item = TokenData<'a>;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop { // Only intention is for `continue` on whitespace encountered
+            return if let Some(c) = self.next_char() {
+                match c {
+                    '{' => Some(TokenData::new(Symbol(LBrace), &self.source[self.pos..self.pos], self.line, self.col)),
+                    '}' => Some(TokenData::new(Symbol(RBrace), &self.source[self.pos..self.pos], self.line, self.col)),
+                    '(' => Some(TokenData::new(Symbol(LParen), &self.source[self.pos..self.pos], self.line, self.col)),
+                    ')' => Some(TokenData::new(Symbol(RParen), &self.source[self.pos..self.pos], self.line, self.col)),
+                    ';' => Some(TokenData::new(Symbol(Semicolon), &self.source[self.pos..self.pos], self.line, self.col)),
+                    ':' => Some(TokenData::new(Symbol(Colon), &self.source[self.pos..self.pos], self.line, self.col)),
+                    '~' => Some(TokenData::new(Operator(BitwiseComplement), &self.source[self.pos..self.pos], self.line, self.col)),
+                    '!' => if self.chars.peek() == Some(&'=') {
+                        self.next_char().unwrap();
+                        Some(TokenData::new(Operator(NotEqual), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
+                    } else {
+                        Some(TokenData::new(Operator(LogicalNegation), &self.source[self.pos..self.pos], self.line, self.col))
+                    }
+                    '-' => if self.chars.peek() == Some(&'=') {
+                        self.next_char().unwrap();
+                        Some(TokenData::new(Operator(MinusAssign), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
+                    } else {
+                        Some(TokenData::new(Operator(Minus), &self.source[self.pos..self.pos], self.line, self.col))
+                    }
+                    '+' => if self.chars.peek() == Some(&'=') {
+                        self.next_char().unwrap();
+                        Some(TokenData::new(Operator(PlusAssign), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
+                    } else {
+                        Some(TokenData::new(Operator(Plus), &self.source[self.pos..self.pos], self.line, self.col))
+                    }
+                    '*' => if self.chars.peek() == Some(&'=') {
+                        self.next_char().unwrap();
+                        Some(TokenData::new(Operator(StarAssign), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
+                    } else {
+                        Some(TokenData::new(Operator(Star), &self.source[self.pos..self.pos], self.line, self.col))
+                    }
+                    '/' => if self.chars.peek() == Some(&'=') {
+                        self.next_char().unwrap();
+                        Some(TokenData::new(Operator(SlashAssign), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
+                    } else {
+                        Some(TokenData::new(Operator(Slash), &self.source[self.pos..self.pos], self.line, self.col))
+                    }
+                    '%' => if self.chars.peek() == Some(&'=') {
+                        self.next_char().unwrap();
+                        Some(TokenData::new(Operator(ModAssign), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
+                    } else {
+                        Some(TokenData::new(Operator(Modulo), &self.source[self.pos..self.pos], self.line, self.col))
+                    }
+                    '&' => if self.chars.peek() == Some(&'&') {
+                        self.next_char().unwrap();
+                        Some(TokenData::new(Operator(And), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
+                    } else if self.chars.peek() == Some(&'=') {
+                        self.next_char().unwrap();
+                        Some(TokenData::new(Operator(ANDAssign), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
+                    } else {
+                        Some(TokenData::new(Operator(BitwiseAND), &self.source[self.pos..self.pos], self.line, self.col))
+                    }
+                    '|' => if self.chars.peek() == Some(&'|') {
+                        self.next_char().unwrap();
+                        Some(TokenData::new(Operator(Or), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
+                    } else if self.chars.peek() == Some(&'=') {
+                        self.next_char().unwrap();
+                        Some(TokenData::new(Operator(ORAssign), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
+                    } else {
+                        Some(TokenData::new(Operator(BitwiseOR), &self.source[self.pos..self.pos], self.line, self.col))
+                    }
+                    '=' => if self.chars.peek() == Some(&'=') {
+                        self.next_char().unwrap();
+                        Some(TokenData::new(Operator(EqualEqual), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
+                    } else {
+                        Some(TokenData::new(Operator(Assignment), &self.source[self.pos..self.pos], self.line, self.col))
+                    }
+                    '<' => if self.chars.peek() == Some(&'=') {
+                        self.next_char().unwrap();
+                        Some(TokenData::new(Operator(LessEqual), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
+                    } else if self.chars.peek() == Some(&'<') {
+                        self.next_char().unwrap();
+                        if self.chars.peek() == Some(&'=') {
+                            self.next_char().unwrap();
+                            Some(TokenData::new(Operator(LeftShiftAssign), &self.source[self.pos-2..=self.pos], self.line, self.col-2))
+                        } else {
+                            Some(TokenData::new(Operator(BitwiseShiftLeft), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
+                        }
+                    } else {
+                        Some(TokenData::new(Operator(LessThan), &self.source[self.pos..self.pos], self.line, self.col))
+                    }
+                    '>' => if self.chars.peek() == Some(&'=') {
+                        self.next_char().unwrap();
+                        Some(TokenData::new(Operator(GreaterEqual), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
+                    } else if self.chars.peek() == Some(&'>') {
+                        self.next_char().unwrap();
+                        if self.chars.peek() == Some(&'=') {
+                            self.next_char().unwrap();
+                            Some(TokenData::new(Operator(RightShiftAssign), &self.source[self.pos-2..=self.pos], self.line, self.col-2))
+                        } else {
+                            Some(TokenData::new(Operator(BitwiseShiftRight), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
+                        }
+                    } else {
+                        Some(TokenData::new(Operator(GreaterThan), &self.source[self.pos..self.pos], self.line, self.col))
+                    }
+                    '^' => if self.chars.peek() == Some(&'=') {
+                        self.next_char().unwrap();
+                        Some(TokenData::new(Operator(XORAssign), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
+                    } else {
+                        Some(TokenData::new(Operator(BitwiseXOR), &self.source[self.pos..self.pos], self.line, self.col))
+                    }
+                    '?' => Some(TokenData::new(Operator(QuestionMark), &self.source[self.pos..self.pos], self.line, self.col)),
+                    _ => {
+                        if c.is_whitespace() {
+                            continue;
+                        } else if c.is_alphabetic() || c == '_' {
+                            let mut full = c.to_string();
+                            let start_pos = self.pos;
+
+                            while let Some(&c) = self.chars.peek() { // Read an identifier
+                                if c.is_alphabetic() || c.is_digit(10) {
+                                    full.push(self.next_char().unwrap());
+                                } else {
+                                    break;
+                                }
+                            }
+
+                            let slice = &self.source[start_pos..=self.pos];
+                            let col = self.col - slice.len();
+                            match &full.to_lowercase()[..] {
+                                "int" => Some(TokenData::new(Keyword(Int), slice, self.line, col)),
+                                "return" => Some(TokenData::new(Keyword(Return), slice, self.line, col)),
+                                "if" => Some(TokenData::new(Keyword(If), slice, self.line, col)),
+                                "else" => Some(TokenData::new(Keyword(Else), slice, self.line, col)),
+                                "for" => Some(TokenData::new(Keyword(For), slice, self.line, col)),
+                                "do" => Some(TokenData::new(Keyword(Do), slice, self.line, col)),
+                                "while" => Some(TokenData::new(Keyword(While), slice, self.line, col)),
+                                "break" => Some(TokenData::new(Keyword(Break), slice, self.line, col)),
+                                "continue" => Some(TokenData::new(Keyword(Continue), slice, self.line, col)),
+                                _ => Some(TokenData::new(Id(full), slice, self.line, col)),
+                            }
+                        }
+                        else if c.is_digit(10) {
+                            let mut full = c.to_string();
+                            let start_pos = self.pos;
+                            
+                            while let Some(&c) = self.chars.peek() { // Read the entire number
+                                if c.is_digit(10) {
+                                    full.push(self.next_char().unwrap());
+                                } else {
+                                    break;
+                                }
+                            }
+
+                            Some(TokenData::new(Integer(full.parse().unwrap()), &self.source[start_pos..=self.pos], self.line, self.col))
+                        } else {
+                            panic!("Unrecognized character: {:?}", c);
+                        }
+                    }
+                }
+            } else {
+                None
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn basics() {
+        let source = "int main() { return 2 >> 3; }";
+        let mut lexer = super::Lexer::new(&source);
+
+        let tok = lexer.next().unwrap();
+        eprintln!("int: {:?}", tok);
+        assert!(tok.token == Token::Keyword(Keyword::Int));
+        assert!(tok.slice == "int");
+        
+        lexer.next().unwrap();
+        lexer.next().unwrap();
+        lexer.next().unwrap();
+        lexer.next().unwrap();
+
+        let tok = lexer.next().unwrap(); // 'return'
+        assert!(tok.token == Token::Keyword(Keyword::Return));
+        assert!(tok.slice == "return");
+        assert!(tok.line == 1);
+        assert!(tok.col == 14);
+    }
 }

@@ -13,7 +13,7 @@ mod scanner;
 mod ast;
 mod generator;
 
-use scanner::lex;
+use scanner::*;
 use ast::*;
 use generator::generate;
 
@@ -43,43 +43,42 @@ fn main() {
         to_gen = true;
     }
     
-    if to_lex {
-        let tokens = lex(&contents);
-        println!("Scanner production:\n{:?}\n", tokens);
-    } else if to_parse {
-        let tokens = lex(&contents);
-        println!("Scanner production:\n{:?}\n", tokens);
+    // let mut lexer = Token::lexer(&contents[..]);
+    let tokens = Lexer::new(&contents).collect::<Vec<TokenData>>();
+    // while lexer.token != Token::End {
+    //     tokens.push(lexer.token);
+    //     lexer.advance();
+    // }
+    println!("Scanner production:\n{:?}\n", tokens);
 
-        let ast = parse(&tokens[..]);
-        println!("Abstract syntax tree:\n{:#?}\n", ast);
+    if to_parse {
+        //let ast = parse(&tokens[..]);
+        //println!("Abstract syntax tree:\n{:#?}\n", ast);
     } else if to_gen {
-        let tokens = lex(&contents);
-        println!("Scanner production:\n{:?}\n", tokens);
+        // let ast = parse(&tokens[..]);
+        // println!("Abstract syntax tree:\n{:#?}\n", ast);
 
-        let ast = parse(&tokens[..]);
-        println!("Abstract syntax tree:\n{:#?}\n", ast);
+        // // Comment out everything below this line to disable code generation
+        // let generated = generate(&ast);
+        // println!("Generated assembly:\n{}", generated);
 
-        // Comment out everything below this line to disable code generation
-        let generated = generate(&ast);
-        println!("Generated assembly:\n{}", generated);
+        // let file_name = Path::new(&argv[1]).file_stem().unwrap().to_str().unwrap();
 
-        let file_name = Path::new(&argv[1]).file_stem().unwrap().to_str().unwrap();
+        // let mut output_file = File::create(&format!("{}.s", file_name)).unwrap();
+        // output_file.write_all(generated.as_bytes()).unwrap();
 
-        let mut output_file = File::create(&format!("{}.s", file_name)).unwrap();
-        output_file.write_all(generated.as_bytes()).unwrap();
+        // let output_name = if cfg!(target_os = "windows") {
+        //     format!("{}.exe", file_name)
+        // } else {
+        //     file_name.to_owned()
+        // };
 
-        let output_name = if cfg!(target_os = "windows") {
-            format!("{}.exe", file_name)
-        } else {
-            file_name.to_owned()
-        };
-
-        println!("Linking...");
-        Command::new("gcc")
-            .args(&["-m32", "-Wall", &format!("{}.s", file_name), "-o", &output_name])
-            .spawn()
-            .unwrap()
-            .wait()
-            .unwrap();
+        // println!("Linking...");
+        // Command::new("gcc")
+        //     .args(&["-m32", "-Wall", &format!("{}.s", file_name), "-o", &output_name])
+        //     .spawn()
+        //     .unwrap()
+        //     .wait()
+        //     .unwrap();
     }
 }
