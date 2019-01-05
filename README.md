@@ -18,22 +18,24 @@ All of tests/stage_1 through tests/stage_6.
 ```rs
 $ cargo build
 ...
-$ .\target\debug\oxc.exe .\test\stage_6\valid\statement\if_nested.c
-.\test\stage_6\valid\statement\if_nested.c:
+$ .\target\debug\oxc.exe .\test\stage_7\valid\consecutive_declarations.c
+.\test\stage_7\valid\consecutive_declarations.c:
 int main() {
-    int a = 1;
-    int b = 0;
-    if (a)
-        b = 1;
-    else if (b)
-        b = 2;
-    return b;
+    int a = 0;
+    {
+        int b = 1;
+        a = b;
+    }
+    {
+        int b = 2;
+        a = a + b;
+    }
+    return a;
 }
 
-Scanner production:
-[Keyword(Int), Id("main"), Symbol(LParen), Symbol(RParen), Symbol(LBrace), Keyword(Int), Id("a"), Operator(Assignment), Integer(1), Symbol(Semicolon), Keyword(Int), Id("b"), Operator(Assignment), Integer(0), Symbol(Semicolon), Keyword(If), Symbol(LParen), Id("a"), Symbol(RParen), Id("b"), Operator(Assignment), Integer(1), Symbol(Semicolon), Keyword(Else), Keyword(If), Symbol(LParen), Id("b"), Symbol(RParen), Id("b"), Operator(Assignment), Integer(2), Symbol(Semicolon), Keyword(Return), Id("b"), Symbol(Semicolon), Symbol(RBrace)]
+Lexically analyzed in 0.000175057s: option 'lex' to print tokens
 
-Abstract syntax tree:
+Parsed in 0.0018207730000000001s:
 Function(
     Function(
         "main",
@@ -43,58 +45,79 @@ Function(
                     "a",
                     Some(
                         Const(
-                            1
-                        )
-                    )
-                )
-            ),
-            Declaration(
-                Declare(
-                    "b",
-                    Some(
-                        Const(
                             0
                         )
                     )
                 )
             ),
             Statement(
-                Conditional(
-                    Var(
-                        "a"
-                    ),
-                    Expr(
-                        Assign(
-                            Assignment,
-                            "b",
-                            Const(
-                                1
+                Compound(
+                    [
+                        Declaration(
+                            Declare(
+                                "b",
+                                Some(
+                                    Const(
+                                        1
+                                    )
+                                )
+                            )
+                        ),
+                        Statement(
+                            Expr(
+                                Some(
+                                    Assign(
+                                        Assignment,
+                                        "a",
+                                        Var(
+                                            "b"
+                                        )
+                                    )
+                                )
                             )
                         )
-                    ),
-                    Some(
-                        Conditional(
-                            Var(
-                                "b"
-                            ),
-                            Expr(
-                                Assign(
-                                    Assignment,
-                                    "b",
+                    ]
+                )
+            ),
+            Statement(
+                Compound(
+                    [
+                        Declaration(
+                            Declare(
+                                "b",
+                                Some(
                                     Const(
                                         2
                                     )
                                 )
-                            ),
-                            None
+                            )
+                        ),
+                        Statement(
+                            Expr(
+                                Some(
+                                    Assign(
+                                        Assignment,
+                                        "a",
+                                        BinOp(
+                                            Plus,
+                                            Var(
+                                                "a"
+                                            ),
+                                            Var(
+                                                "b"
+                                            )
+                                        )
+                                    )
+                                )
+                            )
                         )
-                    )
+                    ]
                 )
             ),
             Statement(
                 Return(
                     Var(
-                        "b"
+                        "a"
                     )
                 )
             )
@@ -102,36 +125,35 @@ Function(
     )
 )
 
-Generated assembly:
+Generated assembly in 0.097695794s:
   .globl _main
 _main:
   push %ebp
   movl %esp, %ebp
-  movl $1, %eax
-  pushl %eax
   movl $0, %eax
-  pushl %eax
-  movl -4(%ebp), %eax
-  cmpl $0, %eax
-  je _c0_else
+  movl %eax, -4(%ebp)
   movl $1, %eax
   movl %eax, -8(%ebp)
-  jmp _c0_end
-_c0_else:
   movl -8(%ebp), %eax
-  cmpl $0, %eax
-  je _c1_else
+  movl %eax, -4(%ebp)
+  addl $4, %esp
   movl $2, %eax
-  movl %eax, -8(%ebp)
-_c1_else:
-_c0_end:
-  movl -8(%ebp), %eax
+  movl %eax, -12(%ebp)
+  movl -4(%ebp), %eax
+  movl %eax, %ecx
+  movl -12(%ebp), %eax
+  addl %ecx, %eax
+  movl %eax, -4(%ebp)
+  addl $4, %esp
+  movl -4(%ebp), %eax
+  jmp _main_epilogue
+  addl $4, %esp
+  movl $0, %eax
 _main_epilogue:
   movl %ebp, %esp
   pop %ebp
   ret
 
-$ ./if_nested
-$ echo $?
-1
+Assembling...
+Assembled in 0.218045083s
 ```
