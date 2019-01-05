@@ -137,6 +137,12 @@ impl<'a> TokenData<'a> {
     }
 }
 
+impl<'a> PartialEq<Token> for TokenData<'a> {
+    fn eq(&self, token: &Token) -> bool {
+        &self.token == token
+    }
+}
+
 pub struct Lexer<'a> {
     source: &'a str,
     chars: Peekable<Chars<'a>>,
@@ -191,48 +197,49 @@ impl<'a> Iterator for Lexer<'a> {
         loop { // Only intention is for `continue` on whitespace encountered
             return if let Some(c) = self.next_char() {
                 match c {
-                    '{' => Some(TokenData::new(Symbol(LBrace), &self.source[self.pos..self.pos], self.line, self.col)),
-                    '}' => Some(TokenData::new(Symbol(RBrace), &self.source[self.pos..self.pos], self.line, self.col)),
-                    '(' => Some(TokenData::new(Symbol(LParen), &self.source[self.pos..self.pos], self.line, self.col)),
-                    ')' => Some(TokenData::new(Symbol(RParen), &self.source[self.pos..self.pos], self.line, self.col)),
-                    ';' => Some(TokenData::new(Symbol(Semicolon), &self.source[self.pos..self.pos], self.line, self.col)),
-                    ':' => Some(TokenData::new(Symbol(Colon), &self.source[self.pos..self.pos], self.line, self.col)),
-                    '~' => Some(TokenData::new(Operator(BitwiseComplement), &self.source[self.pos..self.pos], self.line, self.col)),
+                    '{' => Some(TokenData::new(Symbol(LBrace), &self.source[self.pos..=self.pos], self.line, self.col)),
+                    '}' => Some(TokenData::new(Symbol(RBrace), &self.source[self.pos..=self.pos], self.line, self.col)),
+                    '(' => Some(TokenData::new(Symbol(LParen), &self.source[self.pos..=self.pos], self.line, self.col)),
+                    ')' => Some(TokenData::new(Symbol(RParen), &self.source[self.pos..=self.pos], self.line, self.col)),
+                    ';' => Some(TokenData::new(Symbol(Semicolon), &self.source[self.pos..=self.pos], self.line, self.col)),
+                    ':' => Some(TokenData::new(Symbol(Colon), &self.source[self.pos..=self.pos], self.line, self.col)),
+                    '~' => Some(TokenData::new(Operator(BitwiseComplement), &self.source[self.pos..=self.pos], self.line, self.col)),
+                    '?' => Some(TokenData::new(Operator(QuestionMark), &self.source[self.pos..=self.pos], self.line, self.col)),
                     '!' => if self.chars.peek() == Some(&'=') {
                         self.next_char().unwrap();
                         Some(TokenData::new(Operator(NotEqual), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
                     } else {
-                        Some(TokenData::new(Operator(LogicalNegation), &self.source[self.pos..self.pos], self.line, self.col))
+                        Some(TokenData::new(Operator(LogicalNegation), &self.source[self.pos..=self.pos], self.line, self.col))
                     }
                     '-' => if self.chars.peek() == Some(&'=') {
                         self.next_char().unwrap();
                         Some(TokenData::new(Operator(MinusAssign), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
                     } else {
-                        Some(TokenData::new(Operator(Minus), &self.source[self.pos..self.pos], self.line, self.col))
+                        Some(TokenData::new(Operator(Minus), &self.source[self.pos..=self.pos], self.line, self.col))
                     }
                     '+' => if self.chars.peek() == Some(&'=') {
                         self.next_char().unwrap();
                         Some(TokenData::new(Operator(PlusAssign), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
                     } else {
-                        Some(TokenData::new(Operator(Plus), &self.source[self.pos..self.pos], self.line, self.col))
+                        Some(TokenData::new(Operator(Plus), &self.source[self.pos..=self.pos], self.line, self.col))
                     }
                     '*' => if self.chars.peek() == Some(&'=') {
                         self.next_char().unwrap();
                         Some(TokenData::new(Operator(StarAssign), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
                     } else {
-                        Some(TokenData::new(Operator(Star), &self.source[self.pos..self.pos], self.line, self.col))
+                        Some(TokenData::new(Operator(Star), &self.source[self.pos..=self.pos], self.line, self.col))
                     }
                     '/' => if self.chars.peek() == Some(&'=') {
                         self.next_char().unwrap();
                         Some(TokenData::new(Operator(SlashAssign), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
                     } else {
-                        Some(TokenData::new(Operator(Slash), &self.source[self.pos..self.pos], self.line, self.col))
+                        Some(TokenData::new(Operator(Slash), &self.source[self.pos..=self.pos], self.line, self.col))
                     }
                     '%' => if self.chars.peek() == Some(&'=') {
                         self.next_char().unwrap();
                         Some(TokenData::new(Operator(ModAssign), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
                     } else {
-                        Some(TokenData::new(Operator(Modulo), &self.source[self.pos..self.pos], self.line, self.col))
+                        Some(TokenData::new(Operator(Modulo), &self.source[self.pos..=self.pos], self.line, self.col))
                     }
                     '&' => if self.chars.peek() == Some(&'&') {
                         self.next_char().unwrap();
@@ -241,7 +248,7 @@ impl<'a> Iterator for Lexer<'a> {
                         self.next_char().unwrap();
                         Some(TokenData::new(Operator(ANDAssign), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
                     } else {
-                        Some(TokenData::new(Operator(BitwiseAND), &self.source[self.pos..self.pos], self.line, self.col))
+                        Some(TokenData::new(Operator(BitwiseAND), &self.source[self.pos..=self.pos], self.line, self.col))
                     }
                     '|' => if self.chars.peek() == Some(&'|') {
                         self.next_char().unwrap();
@@ -250,13 +257,13 @@ impl<'a> Iterator for Lexer<'a> {
                         self.next_char().unwrap();
                         Some(TokenData::new(Operator(ORAssign), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
                     } else {
-                        Some(TokenData::new(Operator(BitwiseOR), &self.source[self.pos..self.pos], self.line, self.col))
+                        Some(TokenData::new(Operator(BitwiseOR), &self.source[self.pos..=self.pos], self.line, self.col))
                     }
                     '=' => if self.chars.peek() == Some(&'=') {
                         self.next_char().unwrap();
                         Some(TokenData::new(Operator(EqualEqual), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
                     } else {
-                        Some(TokenData::new(Operator(Assignment), &self.source[self.pos..self.pos], self.line, self.col))
+                        Some(TokenData::new(Operator(Assignment), &self.source[self.pos..=self.pos], self.line, self.col))
                     }
                     '<' => if self.chars.peek() == Some(&'=') {
                         self.next_char().unwrap();
@@ -270,7 +277,7 @@ impl<'a> Iterator for Lexer<'a> {
                             Some(TokenData::new(Operator(BitwiseShiftLeft), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
                         }
                     } else {
-                        Some(TokenData::new(Operator(LessThan), &self.source[self.pos..self.pos], self.line, self.col))
+                        Some(TokenData::new(Operator(LessThan), &self.source[self.pos..=self.pos], self.line, self.col))
                     }
                     '>' => if self.chars.peek() == Some(&'=') {
                         self.next_char().unwrap();
@@ -284,15 +291,14 @@ impl<'a> Iterator for Lexer<'a> {
                             Some(TokenData::new(Operator(BitwiseShiftRight), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
                         }
                     } else {
-                        Some(TokenData::new(Operator(GreaterThan), &self.source[self.pos..self.pos], self.line, self.col))
+                        Some(TokenData::new(Operator(GreaterThan), &self.source[self.pos..=self.pos], self.line, self.col))
                     }
                     '^' => if self.chars.peek() == Some(&'=') {
                         self.next_char().unwrap();
                         Some(TokenData::new(Operator(XORAssign), &self.source[self.pos-1..=self.pos], self.line, self.col-1))
                     } else {
-                        Some(TokenData::new(Operator(BitwiseXOR), &self.source[self.pos..self.pos], self.line, self.col))
+                        Some(TokenData::new(Operator(BitwiseXOR), &self.source[self.pos..=self.pos], self.line, self.col))
                     }
-                    '?' => Some(TokenData::new(Operator(QuestionMark), &self.source[self.pos..self.pos], self.line, self.col)),
                     _ => {
                         if c.is_whitespace() {
                             continue;
