@@ -12,7 +12,7 @@ to the parser.
 See `src/generator.rs`.
 
 # Where The Language is Right Now
-All of tests/stage_1 through tests/stage_6.
+All valid tests/stage_1 through tests/stage_8.
 
 # Testing
 ```rs
