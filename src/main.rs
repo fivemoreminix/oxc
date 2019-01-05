@@ -8,6 +8,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::process::Command;
 use std::path::Path;
+use std::time::Instant;
 
 mod scanner;
 mod ast;
@@ -17,68 +18,99 @@ use scanner::*;
 use ast::*;
 use generator::generate;
 
+fn help() {
+    println!("Usage: oxc{} <FILE> [OPTIONS]\n", if cfg!(target_os = "windows") { ".exe" } else { "" });
+    println!("OPTIONS:\n\tlex\tOnly lexically analyze the file.");
+    println!("\tparse\tOnly lex and generate an abstract syntax tree for the file.");
+}
+
 fn main() {
     let argv: Vec<String> = env::args().collect();
 
     let mut to_lex = false;
     let mut to_parse = false;
-    let mut to_gen = false;
 
     for arg in &argv {
         match &arg[..] {
+            "help" => {
+                help();
+                return;
+            }
             "lex" => to_lex = true,
             "parse" => to_parse = true,
-            "gen" => to_gen = true,
             _ => {},
         }
     }
 
     let mut contents = String::new();
-    File::open(&argv[1]).unwrap().read_to_string(&mut contents).unwrap();
+    match argv.get(1) {
+        Some(file) => { File::open(&file).unwrap().read_to_string(&mut contents).unwrap(); },
+        None => {
+            println!("Error: <FILE> not given. See help:\n");
+            help();
+            return;
+        }
+    }
 
     // Comment the following line if you don't want the source file to be printed
     println!("{}:\n{}\n", &argv[1], contents);
 
-    if !to_lex && !to_parse && !to_gen {
-        to_gen = true;
-    }
-    
-    // let mut lexer = Token::lexer(&contents[..]);
+    let started_processing = Instant::now();
+
     let tokens = Lexer::new(&contents).collect::<Vec<TokenData>>();
-    // while lexer.token != Token::End {
-    //     tokens.push(lexer.token);
-    //     lexer.advance();
-    // }
-    println!("Scanner production:\n{:?}\n", tokens);
+    let lexing_time = {
+        let duration = started_processing.elapsed();
+        duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
+    };
+    if to_lex {
+        println!("Lexically analyzed in {}s:\n{:#?}\n", lexing_time, tokens);
+    } else if to_parse {
+        println!("Lexically analyzed in {}s: option 'lex' to print tokens\n", lexing_time);
+        let ast = parse(&tokens[..]);
+        let parsing_time = {
+            let duration = started_processing.elapsed();
+            duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
+        } - lexing_time;
+        println!("Parsed in {}s:\n{:#?}\n", parsing_time, ast);
+    } else {
+        println!("Lexically analyzed in {}s: option 'lex' to print tokens\n", lexing_time);
+        let ast = parse(&tokens[..]);
+        let parsing_time = {
+            let duration = started_processing.elapsed();
+            duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
+        } - lexing_time;
+        println!("Parsed in {}s:\n{:#?}\n", parsing_time, ast);
 
-    if to_parse {
-        //let ast = parse(&tokens[..]);
-        //println!("Abstract syntax tree:\n{:#?}\n", ast);
-    } else if to_gen {
-        // let ast = parse(&tokens[..]);
-        // println!("Abstract syntax tree:\n{:#?}\n", ast);
+        // Comment out everything below this line to disable code generation
+        let generated = generate(&ast);
+        let generation_time = {
+            let duration = started_processing.elapsed();
+            duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
+        } - (lexing_time + parsing_time);
+        println!("Generated assembly in {}s:\n{}", generation_time, generated);
 
-        // // Comment out everything below this line to disable code generation
-        // let generated = generate(&ast);
-        // println!("Generated assembly:\n{}", generated);
+        let file_name = Path::new(&argv[1]).file_stem().unwrap().to_str().unwrap();
 
-        // let file_name = Path::new(&argv[1]).file_stem().unwrap().to_str().unwrap();
+        let mut output_file = File::create(&format!("{}.s", file_name)).unwrap();
+        output_file.write_all(generated.as_bytes()).unwrap();
 
-        // let mut output_file = File::create(&format!("{}.s", file_name)).unwrap();
-        // output_file.write_all(generated.as_bytes()).unwrap();
+        let output_name = if cfg!(target_os = "windows") {
+            format!("{}.exe", file_name)
+        } else {
+            file_name.to_owned()
+        };
 
-        // let output_name = if cfg!(target_os = "windows") {
-        //     format!("{}.exe", file_name)
-        // } else {
-        //     file_name.to_owned()
-        // };
-
-        // println!("Linking...");
-        // Command::new("gcc")
-        //     .args(&["-m32", "-Wall", &format!("{}.s", file_name), "-o", &output_name])
-        //     .spawn()
-        //     .unwrap()
-        //     .wait()
-        //     .unwrap();
+        println!("Assembling...");
+        Command::new("gcc")
+            .args(&["-m32", "-Wall", &format!("{}.s", file_name), "-o", &output_name])
+            .spawn()
+            .unwrap()
+            .wait()
+            .unwrap();
+        let assembly_time = {
+            let duration = started_processing.elapsed();
+            duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
+        } - (lexing_time + parsing_time + generation_time);
+        println!("Assembled in {}s", assembly_time);
     }
 }
