@@ -341,7 +341,8 @@ impl<'a> Iterator for Lexer<'a> {
                                 }
                             }
 
-                            Some(TokenData::new(Integer(full.parse().unwrap()), &self.source[start_pos..=self.pos], self.line, self.col))
+                            let slice = &self.source[start_pos..=self.pos];
+                            Some(TokenData::new(Integer(full.parse().unwrap()), slice, self.line, self.col - slice.len()))
                         } else {
                             panic!("Unrecognized character: {:?}", c);
                         }
