@@ -379,7 +379,7 @@ pub fn generate_function(function: &FunctionDeclaration, outer_scope: &VariableM
             let mut stack_index = -4isize; // ESP - 4
 
             if name == "main" {
-                if cfg!(target_os = "linux") {
+                if cfg!(target_os = "linux") || cfg!(target_os = "macos") {
                     output.push_str(&format!("  .globl main\nmain:\n"));
                 } else if cfg!(target_os = "windows") {
                     output.push_str(&format!("  .globl _main\n_main:\n"));
