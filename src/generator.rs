@@ -5,6 +5,15 @@ use scanner::*;
 
 type VariableMap = HashMap<String, isize>; // name, location on stack
 
+/// Gives priority to map2. map2 should always be the current scope.
+fn merge_maps<'a>(map1: &'a VariableMap, map2: &'a VariableMap) -> VariableMap {
+    let mut new_map = map1.clone();
+    for (k, &v) in map2 {
+        *new_map.entry(k.clone()).or_insert(0) = v;
+    }
+    new_map
+}
+
 #[derive(Debug, PartialEq)]
 struct Context<'a> {
     function_name: String,
@@ -355,7 +364,7 @@ fn generate_block_item(block_item: &BlockItem, context: &mut Context) -> String 
 
 fn generate_block(block_items: &Vec<BlockItem>, context: &mut Context) -> String {
     let mut output = String::new();
-    let mut inner_scope = VariableMap::new();
+    let mut inner_scope = merge_maps(&context.outer_scope, &context.current_scope);
     for block_item in block_items {
         output.push_str(&generate_block_item(block_item, {
             &mut Context::new(context.function_name.clone(), context.current_scope, &mut inner_scope, context.stack_index, context.counter, context.loop_label_begin.clone(), context.loop_label_end.clone())
@@ -379,9 +388,9 @@ pub fn generate_function(function: &FunctionDeclaration, outer_scope: &VariableM
             let mut stack_index = -4isize; // ESP - 4
 
             if name == "main" {
-                if cfg!(target_os = "linux") || cfg!(target_os = "macos") {
+                if cfg!(target_os = "linux") {
                     output.push_str(&format!("  .globl main\nmain:\n"));
-                } else if cfg!(target_os = "windows") {
+                } else if cfg!(target_os = "windows") || cfg!(target_os = "macos") {
                     output.push_str(&format!("  .globl _main\n_main:\n"));
                 } else {
                     unimplemented!();
