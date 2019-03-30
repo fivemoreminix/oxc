@@ -1,3 +1,7 @@
+//! This "main.rs" file is extremely experimental and is currently making OX just a one-off compiler,
+//! when that is really not the case. OX will become a library in the future. This file will be trashed
+//! someday -- it is just for testing the compiler.
+
 // Made by following along with https://norasandler.com/2017/11/29/Write-a-Compiler.html
 #![allow(unused_imports)]
 
