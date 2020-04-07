@@ -361,7 +361,7 @@ mod tests {
 
     #[test]
     fn basics() {
-        let source = "int main() { return 2 >> 3; }";
+        let source = "int main() {\n    return 2 >> 3;\n}\n"; // A typical source file has a lot of whitespace
         let mut lexer = super::Lexer::new(&source);
 
         let tok = lexer.next().unwrap();
@@ -377,7 +377,7 @@ mod tests {
         let tok = lexer.next().unwrap(); // 'return'
         assert!(tok.token == Token::Keyword(Keyword::Return));
         assert!(tok.slice == "return");
-        assert!(tok.line == 1);
-        assert!(tok.col == 14);
+        assert!(tok.line == 2);
+        assert!(tok.col == 4);
     }
 }
