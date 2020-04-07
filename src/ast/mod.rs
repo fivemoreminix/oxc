@@ -1,3 +1,5 @@
+mod tests;
+
 use scanner::*;
 use std::slice::Iter;
 use std::iter::Peekable;
